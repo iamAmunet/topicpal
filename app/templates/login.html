@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Login page</title>
+        <style>
+            *{
+                margin:0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body{
+                font-family: sans-serif, Arial;
+                height: 100vh;
+                background-color: rgb(215, 248, 237); /* same as signup */
+            }
+
+            .container{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100%;
+            }
+
+            .card{
+                padding: 50px;
+                border-radius: 4px;
+                box-shadow: 0 12px 15px rgba(0, 0, 0, 0.1);
+                width: 400px;
+                background: white;
+                text-align: center;
+            }
+
+            .card label{
+                padding: 40px;
+                font-size: 24px;
+            }
+            .card input{
+                padding: 10px;
+                margin: 10px 20px;
+                border: 1px solid;
+                border-radius: 4px;
+                width: 250px;
+            }
+
+            .card button{
+                padding: 8px;
+                border: 1px solid;
+                border-radius: 4px;
+                background: rgb(164, 212, 196); /* same green as signup */
+                width: 200px;
+                margin: 10px 20px;
+                cursor: pointer;
+            }
+            .card button:hover{
+                background:  rgb(133, 177, 162); /* darker hover */
+                color: rgb(134, 134, 134);
+            }
+            .card a{
+                font-size: 12px;
+                text-decoration: none;
+                color: black; /* same as signup */
+            }
+            .card p{
+                font-size: 12px;
+                margin: 5px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="card">
+                <form method="POST" action="{{url_for('main.login') }}">
+                    <label>Topicpal</label>
+                    <input type="email" name="email" placeholder="Enter your email or username" required>
+                    <input type="password" name="password" placeholder="Enter password">
+                    <a href="#">Forgot password?</a>
+                    <p>or</p>
+                    <a href="#">Login with Google</a>
+                    <button type="submit">Login</button>
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

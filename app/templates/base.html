@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TopicPal - Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('main.home') }}">Home</a></li>
+            <li><a href="#">Pricing</a></li>
+            <li><a href="#">About Us</a></li>
+            <li><a href="{{ url_for('main.login') }}">Login</a></li>
+            <li><a href="{{ url_for('main.signup') }}">Signup</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Section -->
+    <header>
+        <h1>Welcome to TopicPal</h1>
+        <p>Your AI research assistant. Break topics into subtopics, search the web, and organize your research effortlessly.</p>
+        <a href="{{ url_for('main.signup') }}" class="btn-primary">Get Started</a>
+        <a href="{{ url_for('main.login') }}" class="btn-secondary">Login</a>
+    </header>
+
+    <!-- Features Section (Draft) -->
+    <section>
+        <h2>Features</h2>
+        <ul>
+            <li>AI-powered topic breakdown</li>
+            <li>Smart search and scrape</li>
+            <li>Bookmark your findings</li>
+            <li>Save up to 2 projects (history coming soon)</li>
+        </ul>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 TopicPal. All rights reserved.</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TopicPal - Research</title>
+</head>
+<style>
+  /* Reset default margins */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+  }
+
+  body {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f5f5f5;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    background-color: #222;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .sidebar h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .sidebar a {
+    color: #fff;
+    text-decoration: none;
+    padding: 0.7rem 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+
+  .sidebar a:hover {
+    background-color: #444;
+  }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top-bar{
+    width: 100%;
+    background: #fff;
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .profile a img{
+            height: 40px;
+            border-radius: 50%;
+        }
+
+  /* Main content */
+  .research-chat {
+    flex: 1;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .chat-container {
+    width: 100%;
+    height: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .chat-title {
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+  }
+
+  .chat-box {
+    flex: 1; /* fill remaining space */
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #f0f0f0;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .chat-input-area {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .chat-input {
+    flex: 1;
+    padding: 0.5rem 0.8rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+
+  .chat-send-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background-color: #ff6600;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .chat-send-btn:hover {
+    background-color: #e65c00;
+  }
+
+  /* Research workspace tabs */
+  .step {
+    display: none; /* hidden initially */
+    flex-direction: column;
+    margin-top: 2rem;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .tabs button {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: none;
+    background-color: #ddd;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+
+  .tabs button:hover {
+    background-color: #ccc;
+  }
+
+  .tabs button.active {
+    background-color: #ff6600;
+    color: #fff;
+    font-weight: bold;
+  }
+
+  #tabContent {
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+</style>
+
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>TopicPal</h2>
+    <a href="{{ url_for('main.dashboard') }}">Research</a>
+    <a href="#">New Research</a>
+    <a href="#">Bookmark Work</a>
+    <a href="{{ url_for('main.dashboard') }}">Settings</a>
+    <a href="{{ url_for('main.logout') }}">Logout</a>
+    </div>
+  <!--top bar-->
+  <div class="main-content">
+    <header class="top-bar">
+      <div class="profile">
+          <div class="profile">
+              <a href="#"><img src="image.jpg" alt="profile"></a>
+          </div>
+      </div>
+    </header>
+
+  <!-- Main Content -->
+  <main class="research-chat">
+    <div class="chat-container">
+      <h2 class="chat-title">What would you like to research today?</h2>
+      
+      <!-- Chat messages -->
+      <div class="chat-box" id="chatBox">
+        <!-- Messages will appear here -->
+      </div>
+      
+      <!-- User input -->
+      <form class="chat-input-area" id="chatForm">
+        <input type="text" id="chatInput" placeholder="Type your topic..." class="chat-input" />
+        <button type="submit" class="chat-send-btn">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Step 3 - Research Workspace (hidden initially) -->
+  <div class="step" id="step3">
+    <h2>Research Workspace</h2>
+    <p>Your topic: <span id="chosenTopic"></span></p>
+    <p>Subtopic: <span id="chosenSubtopic"></span></p>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button onclick="showTab('overview')">Overview</button>
+      <button onclick="showTab('keypoints')">Key Points</button>
+      <button onclick="showTab('deepdive')">Deep Dive</button>
+      <button onclick="showTab('sources')">Sources</button>
+      <button onclick="showTab('summary')">Summary</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div id="tabContent">
+      Select a tab above to view content.
+    </div>
+
+    <button onclick="backToStep2()">Back</button>
+  </div>
+
+  <script>
+    // Elements
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = chatForm.querySelector('.chat-input');
+    const chatBox = document.getElementById('chatBox');
+    const step3 = document.getElementById('step3');
+    const chosenTopic = document.getElementById('chosenTopic');
+    const chosenSubtopic = document.getElementById('chosenSubtopic');
+    const tabContent = document.getElementById('tabContent');
+    const tabs = document.querySelectorAll('.tabs button');
+  
+    // Show tab content
+    function showTab(tabName) {
+      tabs.forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.querySelector(`.tabs button[onclick="showTab('${tabName}')"]`);
+      activeBtn.classList.add('active');
+  
+      // TODO: Fetch real content from Flask for this tab
+      fetch(`/tab_content/${tabName}`)
+        .then(res => res.json())
+        .then(data => {
+          tabContent.textContent = data.content;
+        })
+        .catch(err => {
+          console.error(err);
+          tabContent.textContent = `Error loading ${tabName}`;
+        });
+    }
+  
+    // Go back to chat
+    function backToStep2() {
+      step3.style.display = 'none';
+      document.querySelector('.research-chat').style.display = 'flex';
+    }
+  
+    // Chat submit
+    chatForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const userText = chatInput.value.trim();
+      if (!userText) return;
+  
+      // Add user message
+      const userMsg = document.createElement('div');
+      userMsg.textContent = userText;
+      userMsg.style.fontWeight = 'bold';
+      userMsg.style.marginBottom = '0.5rem';
+      chatBox.appendChild(userMsg);
+  
+      chatInput.value = '';
+      chatBox.scrollTop = chatBox.scrollHeight;
+  
+      // Send topic to Flask backend to get AI subtopics
+      fetch('/get_subtopics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: userText })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const botMsg = document.createElement('div');
+        botMsg.style.marginBottom = '1rem';
+        botMsg.innerHTML = `<strong>Subtopics:</strong> ${data.subtopics.map((s,i) => `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`).join(', ')}`;
+        chatBox.appendChild(botMsg);
+  
+        // Click event for each subtopic
+        botMsg.querySelectorAll('.choose-subtopic').forEach(link => {
+          link.addEventListener('click', function(ev) {
+            ev.preventDefault();
+            const selectedSubtopic = data.subtopics[link.dataset.index];
+            chosenTopic.textContent = userText;
+            chosenSubtopic.textContent = selectedSubtopic;
+            
+            fetch('/remember_subtopic', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subtopic: selectedSubtopic })
+            });
+  
+            // Hide chat, show step 3
+            document.querySelector('.research-chat').style.display = 'none';
+            step3.style.display = 'flex';
+  
+            // Default first tab active
+            showTab('overview');
+          });
+        });
+  
+        chatBox.scrollTop = chatBox.scrollHeight;
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error retrieving subtopics from server.');
+      });
+    });
+  
+    // Sidebar links
+    const researchLink = document.querySelector('.sidebar a[href="#"]:nth-of-type(1)');
+    const newResearchLink = document.querySelector('.sidebar a[href="#"]:nth-of-type(2)');
+  
+    const chatSection = document.querySelector('.research-chat');
+    const step3Section = document.getElementById('step3');
+  
+    function setActiveLink(activeLink) {
+      document.querySelectorAll('.sidebar a').forEach(link => link.classList.remove('active'));
+      activeLink.classList.add('active');
+    }
+  
+    researchLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      setActiveLink(researchLink);
+      chatSection.style.display = 'flex';
+      step3Section.style.display = 'none';
+    });
+  
+    newResearchLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      setActiveLink(newResearchLink);
+      chatBox.innerHTML = '';
+      step3Section.style.display = 'none';
+      chatSection.style.display = 'flex';
+    });
+  
+    // Set initial active tab (Research)
+    setActiveLink(researchLink);
+  
+  </script>
+  
+  
+
+</body>
+</html>

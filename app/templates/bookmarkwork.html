@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bookmark</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+        }
+
+        .sidebar {
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            background: #222;
+            padding: 1rem;
+            color: #fff;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .sidebar a {
+            text-decoration: none;
+            color: #fff;
+            padding: 0.7rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .sidebar a:hover {
+            background: #444;
+        }
+
+        .sidebar a.active {
+            background: #555;
+        }
+
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+        }
+
+        .bookmark-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .bookmark-buttons button {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .bookmark-buttons button:hover {
+            transform: translateY(-2px);
+        }
+
+        .script-btn {
+            background-color: #4caf50;
+            color: #fff;
+        }
+
+        .pdf-btn {
+            background-color: #2196f3;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>TopicPal</h2>
+        <a href="#" class="active">Research</a>
+        <a href="#">New Research</a>
+        <a href="#" id="bookmarkLink">Bookmark Work</a>
+        <a href="#">Settings</a>
+        <a href="#">Logout</a>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <h2>Bookmark Work</h2>
+        <p>Your saved research will appear here.</p>
+        <div class="bookmark-buttons">
+            <button class="script-btn">Turn to Script</button>
+            <button class="pdf-btn">Download PDF</button>
+        </div>
+    </div>
+
+    <script>
+        // Handle sidebar active state
+        const bookmarkLink = document.getElementById('bookmarkLink');
+        const sidebarLinks = document.querySelectorAll('.sidebar a');
+        const mainContent = document.getElementById('mainContent');
+
+        bookmarkLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            sidebarLinks.forEach(link => link.classList.remove('active'));
+            bookmarkLink.classList.add('active');
+
+            // Replace main content with Bookmark content
+            mainContent.innerHTML = `
+                <h2>Bookmark Work</h2>
+                <p>Your saved research will appear here.</p>
+                <div class="bookmark-buttons">
+                    <button class="script-btn">Turn to Script</button>
+                    <button class="pdf-btn">Download PDF</button>
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>
