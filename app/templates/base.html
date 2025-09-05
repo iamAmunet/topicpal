@@ -2,8 +2,194 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TopicPal - Home</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='Style.css') }}">
+    <!-- Font Awesome for icons (optional, can be removed if not needed) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        /* Navbar */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background-color: #222;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        nav ul {
+            display: flex;
+            justify-content: right;
+            list-style: none;
+        }
+        nav ul li {
+            margin: 0 1.5rem;
+        }
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s, transform 0.3s;
+        }
+        nav ul li a:hover {
+            color: #ff6600;
+            transform: scale(1.05);
+        }
+        /* Hero Section */
+        header {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(135deg, #ff6600 0%, #ff8c00 100%);
+            color: #fff;
+            padding: 2rem;
+            animation: fadeIn 1s ease-in;
+        }
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        header p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin-bottom: 2rem;
+        }
+        .btn-primary{
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background 0.3s, transform 0.3s;
+            background-color: #fff;
+            color: #ff6600;
+            margin-bottom: 5px;
+        }
+
+        .btn-primary:hover {
+            background-color: #f0f0f0;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background 0.3s, transform 0.3s;
+            background-color: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+            margin-left: 1rem;
+        }
+        .btn-secondary:hover {
+            background-color: #fff;
+            color: #ff6600;
+            transform: translateY(-2px);
+        }
+        /* Features Section */
+        section.features {
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        section.features h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            color: #222;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+        .feature-card {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: fadeInUp 0.5s ease-in;
+            animation-delay: calc(var(--index) * 0.1s);
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+        .feature-card i {
+            font-size: 2rem;
+            color: #ff6600;
+            margin-bottom: 1rem;
+        }
+        .feature-card p {
+            font-size: 1rem;
+            color: #555;
+        }
+        /* Footer */
+        footer {
+            background-color: #222;
+            color: #fff;
+            text-align: center;
+            padding: 2rem;
+        }
+        footer p {
+            margin-bottom: 1rem;
+        }
+        .social-links a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 0.5rem;
+            font-size: 1.2rem;
+            transition: color 0.3s;
+        }
+        .social-links a:hover {
+            color: #ff6600;
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+            header p {
+                font-size: 1rem;
+            }
+            nav ul {
+                flex-direction: column;
+                align-items: center;
+            }
+            nav ul li {
+                margin: 0.5rem 0;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -12,6 +198,7 @@
             <li><a href="{{ url_for('main.home') }}">Home</a></li>
             <li><a href="#">Pricing</a></li>
             <li><a href="#">About Us</a></li>
+            <li><a href="#">Blog</a></li>
             <li><a href="{{ url_for('main.login') }}">Login</a></li>
             <li><a href="{{ url_for('main.signup') }}">Signup</a></li>
         </ul>
@@ -25,20 +212,37 @@
         <a href="{{ url_for('main.login') }}" class="btn-secondary">Login</a>
     </header>
 
-    <!-- Features Section (Draft) -->
-    <section>
+    <!-- Features Section -->
+    <section class="features">
         <h2>Features</h2>
-        <ul>
-            <li>AI-powered topic breakdown</li>
-            <li>Smart search and scrape</li>
-            <li>Bookmark your findings</li>
-            <li>Save up to 2 projects (history coming soon)</li>
-        </ul>
+        <div class="features-grid">
+            <div class="feature-card" style="--index: 0;">
+                <i class="fas fa-brain"></i>
+                <p>AI-powered topic breakdown</p>
+            </div>
+            <div class="feature-card" style="--index: 1;">
+                <i class="fas fa-search"></i>
+                <p>Smart search and scrape</p>
+            </div>
+            <div class="feature-card" style="--index: 2;">
+                <i class="fas fa-bookmark"></i>
+                <p>Bookmark your findings</p>
+            </div>
+            <div class="feature-card" style="--index: 3;">
+                <i class="fas fa-folder"></i>
+                <p>Save up to 2 projects (history coming soon)</p>
+            </div>
+        </div>
     </section>
 
     <!-- Footer -->
     <footer>
         <p>&copy; 2025 TopicPal. All rights reserved.</p>
+        <div class="social-links">
+            <a href="#"><i class="fab fa-twitter"></i></a>
+            <a href="#"><i class="fab fa-linkedin"></i></a>
+            <a href="#"><i class="fab fa-github"></i></a>
+        </div>
     </footer>
 </body>
 </html>
