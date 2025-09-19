@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-header .back-btn {
+            padding: 8px 16px;
+            color: #fff;
+            background-color: #ff6600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .card-header .back-btn:hover {
+            background-color: #e65c00;
+        }
+
+        .profile-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 20px;
+            display: block;
+            background: #ccc;
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .card p {
+            font-size: 1rem;
+            margin: 10px 0;
+            color: #555;
+            text-align: left;
+        }
+
+        .card p strong {
+            color: #333;
+        }
+
+        .card button {
+            padding: 8px 16px;
+            margin: 10px 5px;
+            color: #fff;
+            background-color: #ff6600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .card button:hover {
+            background-color: #e65c00;
+        }
+
+        .error, .success {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .error {
+            color: #d8000c;
+            background-color: #ffd2d2;
+        }
+
+        .success {
+            color: #270;
+            background-color: #dff2bf;
+        }
+
+        .password-form {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .password-form input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 500px) {
+            .card {
+                padding: 20px;
+            }
+
+            .profile-pic {
+                width: 100px;
+                height: 100px;
+            }
+
+            .card h2 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <button class="back-btn">Back to Dashboard</button>
+            </div>
+            <img src="/static/profile_placeholder.png" alt="Profile Picture" class="profile-pic">
+            <h2>User Profile</h2>
+            <p><strong>Name:</strong> <span id="userName">Loading...</span></p>
+            <p><strong>Email:</strong> <span id="userEmail">Loading...</span></p>
+            <p><strong>Password:</strong> <span id="userPassword">********</span> <button id="updatePasswordBtn">Update Password</button></p>
+            <div class="password-form" id="passwordForm">
+                <input type="password" id="newPassword" placeholder="New Password">
+                <input type="password" id="confirmPassword" placeholder="Confirm Password">
+                <button id="submitPassword">Save Password</button>
+                <button id="cancelPassword">Cancel</button>
+            </div>
+            <p><strong>Subscription:</strong> <span id="userSubscription">Loading...</span> <button id="upgradeSubscriptionBtn">Upgrade</button></p>
+            <div id="message"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const userName = document.getElementById('userName');
+            const userEmail = document.getElementById('userEmail');
+            const userSubscription = document.getElementById('userSubscription');
+            const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+            const passwordForm = document.getElementById('passwordForm');
+            const newPassword = document.getElementById('newPassword');
+            const confirmPassword = document.getElementById('confirmPassword');
+            const submitPassword = document.getElementById('submitPassword');
+            const cancelPassword = document.getElementById('cancelPassword');
+            const upgradeSubscriptionBtn = document.getElementById('upgradeSubscriptionBtn');
+            const backBtn = document.querySelector('.back-btn');
+            const messageDiv = document.getElementById('message');
+
+            // Helper function to show messages
+            function showMessage(text, type) {
+                messageDiv.textContent = text;
+                messageDiv.className = type;
+                setTimeout(() => {
+                    messageDiv.textContent = '';
+                    messageDiv.className = '';
+                }, 5000);
+            }
+
+            // Fetch user profile data
+            async function loadProfile() {
+                try {
+                    const res = await fetch('/get_profile', {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    userName.textContent = data.name || 'N/A';
+                    userEmail.textContent = data.email || 'N/A';
+                    userSubscription.textContent = data.subscription || 'Free';
+                } catch (err) {
+                    console.error('Error loading profile:', err);
+                    showMessage('Failed to load profile.', 'error');
+                }
+            }
+
+            // Load profile on page load
+            loadProfile();
+
+            // Back button handler
+            backBtn.addEventListener('click', () => {
+                window.location.href = '/dashboard';
+            });
+
+            // Toggle password form
+            updatePasswordBtn.addEventListener('click', () => {
+                passwordForm.style.display = passwordForm.style.display === 'block' ? 'none' : 'block';
+                newPassword.value = '';
+                confirmPassword.value = '';
+            });
+
+            // Cancel password update
+            cancelPassword.addEventListener('click', () => {
+                passwordForm.style.display = 'none';
+                newPassword.value = '';
+                confirmPassword.value = '';
+            });
+
+            // Submit password update
+            submitPassword.addEventListener('click', async () => {
+                if (newPassword.value !== confirmPassword.value) {
+                    showMessage('Passwords do not match.', 'error');
+                    return;
+                }
+                if (newPassword.value.length < 8) {
+                    showMessage('Password must be at least 8 characters.', 'error');
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/update_password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: newPassword.value })
+                    });
+                    if (!res.ok) throw new Error(`Password update failed: ${res.status}`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    showMessage('Password updated successfully!', 'success');
+                    passwordForm.style.display = 'none';
+                    newPassword.value = '';
+                    confirmPassword.value = '';
+                } catch (err) {
+                    console.error('Error updating password:', err);
+                    showMessage('Failed to update password.', 'error');
+                }
+            });
+
+            // Upgrade subscription
+            upgradeSubscriptionBtn.addEventListener('click', async () => {
+                try {
+                    const res = await fetch('/upgrade_subscription', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (!res.ok) throw new Error(`Subscription upgrade failed: ${res.status}`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url; // Redirect to payment portal
+                    } else {
+                        showMessage('Subscription upgraded successfully!', 'success');
+                        loadProfile(); // Refresh profile data
+                    }
+                } catch (err) {
+                    console.error('Error upgrading subscription:', err);
+                    showMessage('Failed to upgrade subscription.', 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

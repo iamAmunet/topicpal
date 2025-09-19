@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings</title>
     <style>
         * {
@@ -14,20 +16,22 @@
             display: flex;
             min-height: 100vh;
             background-color: #f5f5f5;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .sidebar {
             width: 220px;
-            display: flex;
-            flex-direction: column;
             background: #222;
             padding: 1rem;
             color: #fff;
+            display: flex;
+            flex-direction: column;
         }
 
         .sidebar h2 {
             text-align: center;
             margin-bottom: 2rem;
+            font-size: 1.5rem;
         }
 
         .sidebar a {
@@ -44,24 +48,30 @@
         }
 
         .sidebar a.active {
-            background: #555;
+            background: #ff6600;
         }
 
         .main-content {
             flex: 1;
             padding: 2rem;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
         .settings-form {
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
-            max-width: 400px;
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .settings-form label {
             font-weight: bold;
             margin-bottom: 0.3rem;
+            color: #333;
         }
 
         .settings-form select,
@@ -69,13 +79,19 @@
             padding: 0.5rem;
             border-radius: 4px;
             border: 1px solid #ccc;
+            font-size: 1rem;
+        }
+
+        .settings-form input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
         }
 
         .settings-form button {
             padding: 0.8rem;
             border: none;
             border-radius: 6px;
-            background-color: #2196f3;
+            background-color: #ff6600;
             color: #fff;
             cursor: pointer;
             font-size: 1rem;
@@ -83,21 +99,101 @@
         }
 
         .settings-form button:hover {
-            background-color: #1976d2;
+            background-color: #e65c00;
+        }
+
+        .message {
+            margin-top: 1rem;
+            padding: 0.8rem;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .message.success {
+            background-color: #dff2bf;
+            color: #270;
+        }
+
+        .message.error {
+            background-color: #ffd2d2;
+            color: #d8000c;
+        }
+
+        /* Theme styles */
+        body.light {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        body.dark {
+            background-color: #333;
+            color: #fff;
+        }
+
+        body.dark .main-content {
+            background-color: #444;
+        }
+
+        body.dark .settings-form {
+            background-color: #555;
+        }
+
+        body.dark .settings-form label {
+            color: #fff;
+        }
+
+        body.blue {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        body.blue .main-content {
+            background-color: #fff;
+        }
+
+        body.blue .settings-form {
+            background-color: #bbdefb;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                padding: 0.5rem;
+            }
+
+            .sidebar h2 {
+                flex-basis: 100%;
+                margin-bottom: 1rem;
+            }
+
+            .sidebar a {
+                flex: 1;
+                text-align: center;
+                margin: 0.5rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
-<body>
+<body class="light">
     <div class="sidebar">
         <h2>TopicPal</h2>
-        <a href="#">Research</a>
-        <a href="#">New Research</a>
-        <a href="#">Bookmark Work</a>
-        <a href="#" class="active" id="settingsLink">Settings</a>
-        <a href="#">Logout</a>
+        <a href="/dashboard">Research</a>
+        <a href="/new_research">New Research</a>
+        <a href="/bookmark">Bookmark Work</a>
+        <a href="/profile">Profile</a>
+        <a href="/settings" class="active">Settings</a>
+        <a href="/logout">Logout</a>
     </div>
 
-    <div class="main-content" id="mainContent">
+    <div class="main-content">
         <h2>Settings</h2>
         <form class="settings-form">
             <div>
@@ -111,7 +207,7 @@
 
             <div>
                 <label>
-                    <input type="checkbox" id="notifications" checked>
+                    <input type="checkbox" id="notifications">
                     Enable Notifications
                 </label>
             </div>
@@ -126,48 +222,82 @@
 
             <button type="submit">Save Settings</button>
         </form>
+        <div id="message" class="message"></div>
     </div>
 
     <script>
-        const settingsLink = document.getElementById('settingsLink');
-        const sidebarLinks = document.querySelectorAll('.sidebar a');
-        const mainContent = document.getElementById('mainContent');
+        document.addEventListener('DOMContentLoaded', () => {
+            const settingsForm = document.querySelector('.settings-form');
+            const themeColorSelect = document.getElementById('themeColor');
+            const notificationsCheckbox = document.getElementById('notifications');
+            const defaultViewSelect = document.getElementById('defaultView');
+            const messageDiv = document.getElementById('message');
 
-        settingsLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            sidebarLinks.forEach(link => link.classList.remove('active'));
-            settingsLink.classList.add('active');
+            // Helper function to show messages
+            function showMessage(text, type) {
+                messageDiv.textContent = text;
+                messageDiv.className = `message ${type}`;
+                setTimeout(() => {
+                    messageDiv.textContent = '';
+                    messageDiv.className = 'message';
+                }, 5000);
+            }
 
-            mainContent.innerHTML = `
-                <h2>Settings</h2>
-                <form class="settings-form">
-                    <div>
-                        <label for="themeColor">Theme Color</label>
-                        <select id="themeColor">
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                            <option value="blue">Blue</option>
-                        </select>
-                    </div>
+            // Apply theme dynamically
+            function applyTheme(theme) {
+                document.body.className = theme;
+            }
 
-                    <div>
-                        <label>
-                            <input type="checkbox" id="notifications" checked>
-                            Enable Notifications
-                        </label>
-                    </div>
+            // Load saved settings
+            async function loadSettings() {
+                try {
+                    const res = await fetch('/get_settings', {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (!res.ok) throw new Error(`Failed to fetch settings: ${res.status}`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
 
-                    <div>
-                        <label for="defaultView">Default Research View</label>
-                        <select id="defaultView">
-                            <option value="chat">Chat</option>
-                            <option value="form">Form</option>
-                        </select>
-                    </div>
+                    themeColorSelect.value = data.theme_color || 'light';
+                    notificationsCheckbox.checked = data.notifications || false;
+                    defaultViewSelect.value = data.default_view || 'chat';
+                    applyTheme(data.theme_color || 'light');
+                } catch (err) {
+                    console.error('Error loading settings:', err);
+                    showMessage('Failed to load settings.', 'error');
+                }
+            }
 
-                    <button type="submit">Save Settings</button>
-                </form>
-            `;
+            // Save settings
+            settingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const settings = {
+                    theme_color: themeColorSelect.value,
+                    notifications: notificationsCheckbox.checked,
+                    default_view: defaultViewSelect.value
+                };
+
+                try {
+                    const res = await fetch('/save_settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings)
+                    });
+                    if (!res.ok) throw new Error(`Failed to save settings: ${res.status}`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    applyTheme(settings.theme_color);
+                    showMessage('Settings saved successfully!', 'success');
+                } catch (err) {
+                    console.error('Error saving settings:', err);
+                    showMessage('Failed to save settings.', 'error');
+                }
+            });
+
+            // Load settings on page load
+            loadSettings();
         });
     </script>
 </body>

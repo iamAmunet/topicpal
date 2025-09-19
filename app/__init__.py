@@ -21,7 +21,7 @@ def create_app():
     from .routes import main
     app.register_blueprint(main)
 
-    from .models import User, Project, Note, Research  # Include all models
+    from .models import User, Project, Note, Research, Blog # Include all models
 
     with app.app_context():
         

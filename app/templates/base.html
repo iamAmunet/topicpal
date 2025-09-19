@@ -196,9 +196,9 @@
     <nav>
         <ul>
             <li><a href="{{ url_for('main.home') }}">Home</a></li>
-            <li><a href="#">Pricing</a></li>
-            <li><a href="#">About Us</a></li>
-            <li><a href="#">Blog</a></li>
+            <li><a href="{{ url_for('main.pricing') }}">Pricing</a></li>
+            <li><a href="{{ url_for('main.about') }}">About Us</a></li>
+            <li><a href="{{ url_for('main.blog') }}">Blog</a></li>
             <li><a href="{{ url_for('main.login') }}">Login</a></li>
             <li><a href="{{ url_for('main.signup') }}">Signup</a></li>
         </ul>
@@ -207,7 +207,7 @@
     <!-- Hero Section -->
     <header>
         <h1>Welcome to TopicPal</h1>
-        <p>Your AI research assistant. Break topics into subtopics, search the web, and organize your research effortlessly.</p>
+        <p>Your AI research assistant. Makes researching easier and faster by breaking down your topics into subtopics, searching the web, and organize your research data effortlessly.</p>
         <a href="{{ url_for('main.signup') }}" class="btn-primary">Get Started</a>
         <a href="{{ url_for('main.login') }}" class="btn-secondary">Login</a>
     </header>
@@ -218,19 +218,24 @@
         <div class="features-grid">
             <div class="feature-card" style="--index: 0;">
                 <i class="fas fa-brain"></i>
-                <p>AI-powered topic breakdown</p>
+                <p>using AI powered breakdown to breakdown your research topics in subtopics and relevant search terms, making it easier for
+                    you to gather the right information for your research topics
+                </p>
             </div>
             <div class="feature-card" style="--index: 1;">
                 <i class="fas fa-search"></i>
-                <p>Smart search and scrape</p>
+                <p>Smart search and scrape, you can gather large amounts of information all in one click which then
+                    all packaged for you in a clean and user friendly interface
+                </p>
             </div>
             <div class="feature-card" style="--index: 2;">
                 <i class="fas fa-bookmark"></i>
-                <p>Bookmark your findings</p>
+                <p>with the bookmark feature, it makes it easier for you to separate information you find useful.
+                </p>
             </div>
             <div class="feature-card" style="--index: 3;">
                 <i class="fas fa-folder"></i>
-                <p>Save up to 2 projects (history coming soon)</p>
+                <p>making studying any topic easy to understand with its user friendly interface. great for researchers, content creators and students</p>
             </div>
         </div>
     </section>

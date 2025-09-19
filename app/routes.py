@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 from flask_login import login_required, current_user, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from .models import User, Project, Research, Note
+from .models import User, Project, Research, Note, Blog
 from . import db
 import re
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ import os
 import json
 import requests
 from .scrapper import free_scraper
+from .scrapper2 import tavily_enhanced_scraper
 from .config import GROQ_API_KEY, GROQ_ENDPOINT
 from .ai_utils import generate_keypoints, generate_deep_dive, generate_sources, generate_summary
 from datetime import timedelta, datetime
@@ -23,6 +24,49 @@ def home():
         return redirect(url_for('main.dashboard'))
     return render_template('base.html')
 
+@main.route('/pricing')
+def pricing():
+    return render_template('pricing.html')
+
+@main.route('/blog')
+def blog():
+    contents = Blog.query.all()
+    print(f"Contents: {[c.id for c in contents]}")
+    return render_template('blog.html', contents=contents)
+
+@main.route('/about')
+def about():
+    return render_template('about.html')
+
+
+@main.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html')
+
+@main.route('/new_research', methods=['POST'])
+@login_required
+def new_research():
+    try:
+        # Generate a new session_id
+        session_id = os.urandom(16).hex()
+        session['session_id'] = session_id
+        session['current_topic'] = ''
+        session['chosen_subtopic'] = {'research_id': None, 'subtopic': ''}
+        session['scraping'] = False
+        session.permanent = True
+        session.modified = True
+
+        # Deactivate all existing active research sessions for the user
+        Research.query.filter_by(user_id=current_user.user_id, active=True).update({'active': False})
+        db.session.commit()
+
+        return jsonify({'message': 'New research session started.'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error starting new research: {str(e)}")
+        return jsonify({'error': f"Failed to start new research: {str(e)}"}), 500
+
 @main.route('/dashboard')
 @login_required
 def dashboard():
@@ -36,7 +80,14 @@ def dashboard():
             session.pop('current_topic', None)
             session.pop('scraping', None)
             session.pop('last_active', None)
+            session.pop('session_id', None)  # Clear session_id
             session.modified = True
+
+    # Set session_id if not present
+    if not session.get('session_id'):
+        session['session_id'] = os.urandom(16).hex()  # Generate unique session_id
+        session.permanent = True
+        session.modified = True
 
     # Update session timestamp
     session['last_active'] = datetime.utcnow().isoformat()
@@ -44,14 +95,14 @@ def dashboard():
     # Clear invalid session data
     if session.get('chosen_subtopic', {}).get('research_id'):
         research = Research.query.get(session['chosen_subtopic']['research_id'])
-        if not research or research.user_id != current_user.user_id or not research.active:
-            print(f"Invalid or inactive research_id {session['chosen_subtopic']['research_id']} for user {current_user.user_id}, clearing.")
+        if not research or research.user_id != current_user.user_id or not research.active or research.session_id != session['session_id']:
+            print(f"Invalid or inactive research_id {session['chosen_subtopic']['research_id']} for user {current_user.user_id} or session {session['session_id']}, clearing.")
             session.pop('chosen_subtopic', None)
             session.pop('current_topic', None)
             session.modified = True
 
-    # Load latest active research
-    latest_research = Research.query.filter_by(user_id=current_user.user_id, active=True).order_by(Research.created_at.desc()).first()
+    # Load latest active research for the current session
+    latest_research = Research.query.filter_by(user_id=current_user.user_id, session_id=session['session_id'], active=True).order_by(Research.created_at.desc()).first()
     if latest_research and not session.get('chosen_subtopic'):
         session['chosen_subtopic'] = {
             'subtopic': latest_research.subtopic or '',
@@ -115,6 +166,9 @@ def logout():
     flash("You’ve been logged out.", "info")
     return redirect(url_for('main.home'))
 
+from sqlalchemy import inspect
+from sqlalchemy.orm import attributes
+
 @main.route('/get_subtopics', methods=['POST'])
 @login_required
 def get_subtopics():
@@ -126,20 +180,49 @@ def get_subtopics():
 
     print(f"Received topic: {topic}")
 
-    # Save topic as first chat message
-    research = Research.query.filter_by(user_id=current_user.user_id, active=True).order_by(Research.created_at.desc()).first()
+    # Ensure session_id is set
+    if not session.get('session_id'):
+        session['session_id'] = os.urandom(16).hex()
+        session.permanent = True
+        session.modified = True
+
+    # Check for existing active research with the same topic and session_id
+    research = Research.query.filter_by(
+        user_id=current_user.user_id,
+        topic=topic,
+        session_id=session['session_id'],
+        active=True
+    ).order_by(Research.created_at.desc()).first()
+
     if not research:
+        # Deactivate old active research records in this session
+        Research.query.filter_by(user_id=current_user.user_id, session_id=session['session_id'], active=True).update({'active': False})
+        db.session.commit()
+        # Create new research record
         research = Research(
             user_id=current_user.user_id,
             topic=topic,
-            chat_history=[{"role": "user", "content": topic, "timestamp": datetime.utcnow().isoformat()}]
+            chat_history=[{"role": "user", "content": topic, "timestamp": datetime.utcnow().isoformat()}],
+            active=True,
+            session_id=session['session_id']
         )
         db.session.add(research)
     else:
+        # Append user message to existing research
         research.chat_history = research.chat_history or []
         research.chat_history.append({"role": "user", "content": topic, "timestamp": datetime.utcnow().isoformat()})
-        research.topic = topic
-    db.session.commit()
+        attributes.flag_modified(research, "chat_history")
+        db.session.add(research)
+
+    try:
+        db.session.flush()
+        db.session.commit()
+        research = Research.query.get(research.id)
+        print(f"Saved user topic to Research ID {research.id}: {json.dumps(research.chat_history, indent=2)}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving user topic: {str(e)}")
+        return jsonify({"error": f"Failed to save topic: {str(e)}"}), 500
 
     prompt = f"""
     Generate exactly 3-5 specific subtopics for research on the topic '{topic}'.
@@ -191,6 +274,24 @@ def get_subtopics():
                     if subtopic and terms:
                         subtopics.append(subtopic)
                         search_terms[subtopic] = terms
+            elif line.startswith('1.') or line.startswith('2.') or line.startswith('3.'):
+                parts = line.split(': ', 1)
+                if len(parts) == 2:
+                    subtopic = parts[0].strip()
+                    terms_str = parts[1].strip()
+                    terms = [t.strip() for t in terms_str.split(',') if t.strip()]
+                    if subtopic and terms:
+                        subtopics.append(subtopic)
+                        search_terms[subtopic] = terms
+            elif ':' in line and 'search' in line.lower():
+                parts = line.split(': ', 1)
+                if len(parts) == 2:
+                    subtopic = parts[0].strip()
+                    terms_str = parts[1].strip()
+                    terms = [t.strip() for t in terms_str.split(',') if t.strip()]
+                    if subtopic and terms:
+                        subtopics.append(subtopic)
+                        search_terms[subtopic] = terms
 
         if not subtopics:
             print("Parsing failed, using fallback naive subtopics.")
@@ -201,35 +302,119 @@ def get_subtopics():
         # Add bot response with subtopics to chat history
         bot_message = {"role": "bot", "content": f"Here are some subtopics: {', '.join(result['subtopics'])}", "timestamp": datetime.utcnow().isoformat()}
         research.chat_history.append(bot_message)
-        db.session.commit()
+        attributes.flag_modified(research, "chat_history")
+        db.session.add(research)
+        print(f"Before commit, chat_history: {json.dumps(research.chat_history, indent=2)}")
+        try:
+            db.session.flush()
+            db.session.commit()
+            research = Research.query.get(research.id)
+            print(f"After commit, Research ID {research.id} chat_history: {json.dumps(research.chat_history, indent=2)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error committing bot subtopics: {str(e)}")
+            return jsonify({"error": f"Failed to save subtopics: {str(e)}"}), 500
 
         session['current_topic'] = topic
+        session['chosen_subtopic'] = {'subtopic': '', 'research_id': research.id}
         session.permanent = True
         session.modified = True
-        print(f"Saved topic '{topic}' and subtopics to Research ID {research.id}")
-        return jsonify(result)
+        print(f"Final subtopics: {subtopics}")
+        return jsonify({
+            "subtopics": result["subtopics"],
+            "search_terms": result["search_terms"],
+            "research_id": research.id
+        })
 
     except requests.exceptions.Timeout:
         print("Timeout error: Groq API timed out.")
         result = naive_subtopics(topic)
         bot_message = {"role": "bot", "content": f"Here are some subtopics: {', '.join(result['subtopics'])}", "timestamp": datetime.utcnow().isoformat()}
         research.chat_history.append(bot_message)
-        db.session.commit()
-        return jsonify(result), 500
+        attributes.flag_modified(research, "chat_history")
+        db.session.add(research)
+        print(f"Before commit (fallback), chat_history: {json.dumps(research.chat_history, indent=2)}")
+        try:
+            db.session.flush()
+            db.session.commit()
+            research = Research.query.get(research.id)
+            print(f"After commit (fallback), Research ID {research.id} chat_history: {json.dumps(research.chat_history, indent=2)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error committing fallback bot subtopics: {str(e)}")
+            return jsonify({"error": f"Failed to save subtopics: {str(e)}"}), 500
+        return jsonify({
+            "subtopics": result["subtopics"],
+            "search_terms": result["search_terms"],
+            "research_id": research.id
+        }), 500
     except requests.exceptions.HTTPError as e:
         print(f"HTTP error: {e.response.status_code} - {e.response.text}")
         result = naive_subtopics(topic)
         bot_message = {"role": "bot", "content": f"Here are some subtopics: {', '.join(result['subtopics'])}", "timestamp": datetime.utcnow().isoformat()}
         research.chat_history.append(bot_message)
-        db.session.commit()
-        return jsonify(result), 500
+        attributes.flag_modified(research, "chat_history")
+        db.session.add(research)
+        print(f"Before commit (fallback), chat_history: {json.dumps(research.chat_history, indent=2)}")
+        try:
+            db.session.flush()
+            db.session.commit()
+            research = Research.query.get(research.id)
+            print(f"After commit (fallback), Research ID {research.id} chat_history: {json.dumps(research.chat_history, indent=2)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error committing fallback bot subtopics: {str(e)}")
+            return jsonify({"error": f"Failed to save subtopics: {str(e)}"}), 500
+        return jsonify({
+            "subtopics": result["subtopics"],
+            "search_terms": result["search_terms"],
+            "research_id": research.id
+        }), 500
+    except KeyError as e:
+        print(f"Key error in response: {e}")
+        print(f"Response keys: {ai_response.keys() if 'ai_response' in locals() else 'No response'}")
+        result = naive_subtopics(topic)
+        bot_message = {"role": "bot", "content": f"Here are some subtopics: {', '.join(result['subtopics'])}", "timestamp": datetime.utcnow().isoformat()}
+        research.chat_history.append(bot_message)
+        attributes.flag_modified(research, "chat_history")
+        db.session.add(research)
+        print(f"Before commit (fallback), chat_history: {json.dumps(research.chat_history, indent=2)}")
+        try:
+            db.session.flush()
+            db.session.commit()
+            research = Research.query.get(research.id)
+            print(f"After commit (fallback), Research ID {research.id} chat_history: {json.dumps(research.chat_history, indent=2)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error committing fallback bot subtopics: {str(e)}")
+            return jsonify({"error": f"Failed to save subtopics: {str(e)}"}), 500
+        return jsonify({
+            "subtopics": result["subtopics"],
+            "search_terms": result["search_terms"],
+            "research_id": research.id
+        }), 500
     except Exception as e:
         print(f"Grok API error: {e}")
         result = naive_subtopics(topic)
         bot_message = {"role": "bot", "content": f"Here are some subtopics: {', '.join(result['subtopics'])}", "timestamp": datetime.utcnow().isoformat()}
         research.chat_history.append(bot_message)
-        db.session.commit()
-        return jsonify(result), 500
+        attributes.flag_modified(research, "chat_history")
+        db.session.add(research)
+        print(f"Before commit (fallback), chat_history: {json.dumps(research.chat_history, indent=2)}")
+        try:
+            db.session.flush()
+            db.session.commit()
+            research = Research.query.get(research.id)
+            print(f"After commit (fallback), Research ID {research.id} chat_history: {json.dumps(research.chat_history, indent=2)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error committing fallback bot subtopics: {str(e)}")
+            return jsonify({"error": f"Failed to save subtopics: {str(e)}"}), 500
+        return jsonify({
+            "subtopics": result["subtopics"],
+            "search_terms": result["search_terms"],
+            "research_id": research.id
+        }), 500
 
 def naive_subtopics(topic: str) -> dict:
     """Fallback subtopic generator without AI."""
@@ -282,6 +467,7 @@ def remember_subtopic():
         print(f"Error saving subtopic: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @main.route('/run_scraper', methods=['POST'])
 @login_required
 def run_scraper():
@@ -299,11 +485,22 @@ def run_scraper():
     session.modified = True
 
     try:
-        # Run scraper
-        scraped_results = free_scraper(tuple(search_terms))
+        # Check user tier here for future paid scraper (e.g., Tavily)
+        # if current_user.is_premium:
+        #     scraped_results = tavily_enhanced_scraper(search_terms)
+        # else:
+        #     scraped_results = free_scraper(tuple(search_terms))
+
+        if current_user.tier == "paid":
+            print("running paid scraper.....")
+            scraped_results = tavily_enhanced_scraper(search_terms)
+
+        else:
+            print("running free scraper.....")
+            scraped_results = free_scraper(tuple(search_terms))
+        
         print(f"Scraper raw results: {json.dumps(scraped_results, indent=2)}")
 
-        # If empty, try fallback terms
         if not scraped_results or not any(scraped_results.values()):
             print("Scraper returned empty results, trying fallback terms")
             fallback_terms = [f"{subtopic.lower()} overview", f"{subtopic.lower()} guide", f"{subtopic.lower()} history"]
@@ -317,7 +514,6 @@ def run_scraper():
             for item in source_results
         ]
 
-        # Ensure a Research record exists
         research = Research.query.filter_by(user_id=current_user.user_id, subtopic=subtopic, active=True).order_by(Research.created_at.desc()).first()
         if not research:
             print("Creating new Research record")
@@ -386,46 +582,113 @@ def get_session_data():
     print(f"Returning session data: {json.dumps(data, indent=2)}")
     return jsonify(data)
 
+
 @main.route('/get_research/<int:research_id>')
 @login_required
 def get_research(research_id):
-    research = Research.query.get(research_id)
-    if not research:
-        print(f"Research ID {research_id} not found in database.")
-        return jsonify({"error": "Research not found."}), 404
-    if research.user_id != current_user.user_id:
-        print(f"Research ID {research_id} unauthorized for user {current_user.user_id}.")
-        return jsonify({"error": "Unauthorized access to research."}), 403
-    if not research.active:
-        print(f"Research ID {research_id} is inactive.")
-        return jsonify({"error": "Research is inactive."}), 404
-    data = {
-        'topic': research.topic,
-        'subtopic': research.subtopic,
-        'scraper_results': research.scraper_results if research.scraper_results else None,
-        'chat_history': research.chat_history if research.chat_history else []
-    }
-    print(f"Returning research data for ID {research_id}: {json.dumps(data, indent=2)}")
-    return jsonify(data)
-
-@main.route('/new_research', methods=['POST'])
-@login_required
-def new_research():
     try:
-        Research.query.filter_by(user_id=current_user.user_id, active=True).update({'active': False})
-        db.session.commit()
-        session.pop('chosen_subtopic', None)
-        session.pop('current_topic', None)
-        session.pop('scraping', None)
-        session.pop('bookmarks', None)
-        session['last_active'] = datetime.utcnow().isoformat()
-        session.permanent = True
-        session.modified = True
-        print(f"Cleared active research for user {current_user.user_id}")
-        return jsonify({"message": "New research started"})
+        research = Research.query.filter_by(id=research_id, user_id=current_user.user_id).first()
+        if not research:
+            print(f"Research ID {research_id} not found for user {current_user.user_id}")
+            return jsonify({"error": "Research not found."}), 404
+
+        session_id = research.session_id
+        if not session_id:
+            # Legacy records without session_id, return single record
+            data = {
+                'topic': research.topic,
+                'subtopic': research.subtopic,
+                'scraper_results': research.scraper_results if research.scraper_results else None,
+                'chat_history': research.chat_history if research.chat_history else []
+            }
+            print(f"Returning single research data for ID {research_id}: {json.dumps(data, indent=2)}")
+            return jsonify(data)
+
+        # Fetch all research records in the same session
+        researches = Research.query.filter_by(
+            user_id=current_user.user_id,
+            session_id=session_id
+        ).order_by(Research.created_at.asc()).all()
+
+        # Aggregate chat_history
+        aggregated_chat_history = []
+        for r in researches:
+            if r.chat_history:
+                aggregated_chat_history.extend(r.chat_history)
+
+        # Sort chat_history by timestamp
+        aggregated_chat_history.sort(key=lambda x: x['timestamp'])
+
+        data = {
+            'topic': research.topic,
+            'subtopic': research.subtopic,
+            'scraper_results': research.scraper_results if research.scraper_results else None,
+            'chat_history': aggregated_chat_history
+        }
+        print(f"Returning aggregated research data for ID {research_id} in session {session_id}: {json.dumps(data, indent=2)}")
+        return jsonify(data)
     except Exception as e:
-        print(f"Error starting new research: {e}")
+        print(f"Error fetching research {research_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@main.route('/get_latest_research', methods=['GET'])
+@login_required
+def get_latest_research():
+    try:
+        session_id = session.get('session_id')
+        if not session_id:
+            print(f"No session_id for user {current_user.user_id}")
+            return jsonify({}), 200
+
+        # Fetch all research records in the current session
+        researches = Research.query.filter_by(
+            user_id=current_user.user_id,
+            session_id=session_id
+        ).order_by(Research.created_at.asc()).all()
+
+        if not researches:
+            print(f"No research records for user {current_user.user_id} in session {session_id}")
+            return jsonify({}), 200
+
+        # Aggregate chat_history from all records
+        aggregated_chat_history = []
+        latest_research = researches[-1]  # Latest record for metadata
+        for research in researches:
+            if research.chat_history:
+                aggregated_chat_history.extend(research.chat_history)
+
+        # Sort chat_history by timestamp
+        aggregated_chat_history.sort(key=lambda x: x['timestamp'])
+
+        data = {
+            "id": latest_research.id,
+            "topic": latest_research.topic,
+            "subtopic": latest_research.subtopic,
+            "scraper_results": latest_research.scraper_results,
+            "chat_history": aggregated_chat_history
+        }
+        print(f"Returning aggregated research data for session {session_id}: {json.dumps(data, indent=2)}")
+        return jsonify(data)
+    except Exception as e:
+        print(f"Error fetching latest research: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@main.route('/start_research', methods=['POST'])
+@login_required
+def start_research():
+    try:
+        data = request.get_json()
+        topic = data.get('topic', '').strip()
+        if not topic:
+            print(f"No topic provided by user {current_user.user_id}")
+            return jsonify({'error': 'No topic provided.'}), 400
+        # Redirect to /get_subtopics
+        return redirect(url_for('main.get_subtopics'), code=307)  # Preserve POST data
+    except Exception as e:
+        print(f"Error starting research: {str(e)}")
+        return jsonify({'error': f"Failed to start research: {str(e)}"}), 500
+
 
 @main.route('/save_research', methods=['POST'])
 @login_required
@@ -447,7 +710,6 @@ def save_research():
 
         project = Project(
             user_id=current_user.user_id,
-            title=research.topic or 'Untitled',
             topic=research.topic,
             subtopic=research.subtopic,
             search_terms=research.search_terms,
@@ -469,43 +731,79 @@ def save_research():
         print(f"Error saving project: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@main.route('/load_project/<int:project_id>')
+@main.route('/load_project/<int:project_id>', methods=['GET'])
 @login_required
 def load_project(project_id):
-    project = Project.query.get(project_id)
-    if not project or project.user_id != current_user.user_id:
-        print(f"Project ID {project_id} not found or unauthorized for user {current_user.user_id}")
-        return jsonify({"error": "Project not found or unauthorized."}), 404
-
     try:
-        # Deactivate current research
-        Research.query.filter_by(user_id=current_user.user_id, active=True).update({'active': False})
-        # Create new Research from Project
+        project = Project.query.filter_by(id=project_id, user_id=current_user.user_id).first()
+        if not project:
+            print(f"Project ID {project_id} not found for user {current_user.user_id}")
+            return jsonify({'error': 'Project not found.'}), 404
+
+        session_id = session.get('session_id')
+        if not session_id:
+            print(f"No session_id for user {current_user.user_id}, generating new one")
+            session_id = os.urandom(16).hex()
+            session['session_id'] = session_id
+            session.permanent = True
+            session.modified = True
+
+        Research.query.filter_by(user_id=current_user.user_id, session_id=session_id, active=True).update({'active': False})
+        db.session.commit()
+
         research = Research(
             user_id=current_user.user_id,
             topic=project.topic,
             subtopic=project.subtopic,
             search_terms=project.search_terms,
             scraper_results=project.scraper_results,
-            chat_history=project.chat_history,
-            active=True
+            chat_history=project.chat_history or [{"role": "user", "content": project.topic, "timestamp": datetime.utcnow().isoformat()}],
+            active=True,
+            session_id=session_id
         )
         db.session.add(research)
         db.session.commit()
 
-        session['chosen_subtopic'] = {'subtopic': project.subtopic or '', 'research_id': research.id}
-        session['current_topic'] = project.topic or ''
+        print(f"Created Research ID {research.id} from Project ID {project_id} for user {current_user.user_id}")
+
+        session['chosen_subtopic'] = {'research_id': research.id, 'subtopic': project.subtopic or ''}
+        session['current_topic'] = project.topic
+        session.permanent = True
         session.modified = True
-        print(f"Loaded Project ID {project_id} into Research ID {research.id}")
+
         return jsonify({
-            "topic": project.topic,
-            "subtopic": project.subtopic,
-            "scraper_results": project.scraper_results,
-            "chat_history": project.chat_history
+            'message': 'Project loaded',
+            'research_id': research.id,
+            'topic': project.topic,
+            'subtopic': project.subtopic,
+            'scraper_results': project.scraper_results,
+            'chat_history': project.chat_history
         })
     except Exception as e:
-        print(f"Error loading project: {e}")
-        return jsonify({"error": str(e)}), 500
+        db.session.rollback()
+        print(f"Error loading project: {str(e)}")
+        return jsonify({'error': f"Failed to load project: {str(e)}"}), 500
+
+@main.route('/load_content/<int:content_id>', methods=['GET'])
+def load_content(content_id):
+    try:
+        content = Blog.query._filter_by(id=content_id).first()
+        if not content:
+            print(f"Project ID {content_id}")
+            return jsonify({'error': 'Project not found.'}), 404
+        
+        return jsonify({
+            'message' : 'Content loaded',
+            'content_id' : content.id,
+            'title' : content.title,
+            'contents' : content.content
+        })
+    except Exception as e:
+        print(f"Error loading content: {str(e)}")
+        return jsonify({'error': f"Failed to load project: {str(e)}"}), 500
+
+
+
 
 @main.route('/bookmark', methods=['GET'])
 @login_required
@@ -516,26 +814,74 @@ def bookmark_page():
 @login_required
 def bookmark():
     data = request.get_json()
-    text = data.get('text', '').strip()
-    if not text:
-        return jsonify({"error": "No text provided."}), 400
+    print(f"Received /bookmark payload for user {current_user.user_id}: {json.dumps(data, indent=2)}")
+    content = data.get('text', '').strip()
+    source = data.get('source', '').strip()
+    if not content:
+        print(f"No content provided for bookmark by user {current_user.user_id}")
+        return jsonify({'error': 'No content to bookmark.'}), 400
 
-    try:
-        research = Research.query.filter_by(user_id=current_user.user_id, active=True).order_by(Research.created_at.desc()).first()
-        note = Note(
+    session_id = session.get('session_id')
+    if not session_id:
+        print(f"No session_id found for user {current_user.user_id}, generating new one")
+        session_id = os.urandom(16).hex()
+        session['session_id'] = session_id
+        session.permanent = True
+        session.modified = True
+
+    research_id = data.get('research_id')
+    if research_id:
+        research = Research.query.filter_by(
+            id=research_id,
             user_id=current_user.user_id,
-            content=text,
-            research_id=research.id if research else None,
-            source_tab=session.get('activeTab', 'overview'),
-            standalone=False
-        )
-        db.session.add(note)
+            active=True
+        ).first()
+        if not research:
+            print(f"Invalid research_id {research_id} for user {current_user.user_id}")
+            return jsonify({'error': 'Invalid research ID.'}), 400
+    else:
+        research = Research.query.filter_by(
+            user_id=current_user.user_id,
+            session_id=session_id,
+            active=True
+        ).order_by(Research.created_at.desc()).first()
+
+    if not research:
+        print(f"No active research found for user {current_user.user_id} in session {session_id}, creating fallback")
+        Research.query.filter_by(user_id=current_user.user_id, session_id=session_id, active=True).update({'active': False})
         db.session.commit()
-        print(f"Saved Note ID {note.id} for user {current_user.user_id}, attached to Research ID {research.id if research else 'None'}")
-        return jsonify({"message": "Bookmark saved", "note_id": note.id})
+        research = Research(
+            user_id=current_user.user_id,
+            topic="Bookmarked Content",
+            chat_history=[],
+            active=True,
+            session_id=session_id,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(research)
+        try:
+            db.session.commit()
+            print(f"Created fallback Research ID {research.id} for user {current_user.user_id} in session {session_id}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating fallback Research: {str(e)}")
+            return jsonify({'error': f"Failed to create research record: {str(e)}"}), 500
+    note = Note(
+        user_id=current_user.user_id,
+        research_id=research.id,
+        content=content,
+        source=source,
+        created_at=datetime.utcnow()
+    )
+    db.session.add(note)
+    try:
+        db.session.commit()
+        print(f"Saved Note ID {note.id} for user {current_user.user_id}, attached to Research ID {research.id}")
+        return jsonify({'message': 'Text bookmarked!'})
     except Exception as e:
-        print(f"Error saving bookmark: {e}")
-        return jsonify({"error": str(e)}), 500
+        db.session.rollback()
+        print(f"Error saving bookmark: {str(e)}")
+        return jsonify({'error': f"Failed to save bookmark: {str(e)}"}), 500
 
 @main.route('/make_standalone/<int:note_id>', methods=['POST'])
 @login_required
@@ -560,9 +906,9 @@ def tab_content(tab_name):
     if session.get('scraping', False):
         return jsonify({"content": "Scraping in progress, please wait..."})
 
-    research_id = session.get('chosen_subtopic', {}).get('research_id')
+    research_id = request.args.get('research_id', session.get('chosen_subtopic', {}).get('research_id'))
     if not research_id:
-        print("No research_id in session.")
+        print("No research_id in session or query parameters.")
         return jsonify({"content": "No research data available."}), 404
 
     research = Research.query.get(research_id)
@@ -599,6 +945,7 @@ def tab_content(tab_name):
         print(f"Error loading tab {tab_name}: {e}")
         return jsonify({"content": f"Error loading {tab_name}"}), 500
 
+
 def call_grok(prompt, model="llama-3.1-8b-instant"):
     """Call Grok API for content generation."""
     if not GROQ_API_KEY:
@@ -633,3 +980,276 @@ def call_grok(prompt, model="llama-3.1-8b-instant"):
     except Exception as e:
         print(f"Grok API error: {e}")
         return f"Error generating content: {str(e)}"
+
+@main.route('/get_bookmarks', methods=['GET'])
+@login_required
+def get_bookmarks():
+    try:
+        # Get the current session_id and research_id
+        session_id = session.get('session_id')
+        chosen_subtopic = session.get('chosen_subtopic', {})
+        research_id = chosen_subtopic.get('research_id') if chosen_subtopic else None
+
+        # Fetch current bookmarks (from active Research session)
+        current_bookmarks = []
+        if session_id and research_id:
+            active_research = Research.query.filter_by(
+                user_id=current_user.user_id,
+                id=research_id,
+                active=True
+            ).first()
+            if active_research:
+                current_bookmarks = [
+                    {
+                        'id': note.id,
+                        'content': note.content,
+                        'source': note.source or 'No source',
+                        'created_at': note.created_at.isoformat(),
+                        'research_id': note.research_id,
+                        'project_id': note.project_id
+                    }
+                    for note in Note.query.filter_by(
+                        user_id=current_user.user_id,
+                        research_id=research_id
+                    ).order_by(Note.created_at.desc()).all()
+                ]
+
+        # Fetch all bookmarks for the user
+        all_bookmarks = [
+            {
+                'id': note.id,
+                'content': note.content,
+                'source': note.source or 'No source',
+                'created_at': note.created_at.isoformat(),
+                'research_id': note.research_id,
+                'project_id': note.project_id,
+                'topic': (
+                    Research.query.get(note.research_id).topic if note.research_id else
+                    Project.query.get(note.project_id).topic if note.project_id else 'Unknown'
+                ),
+                'subtopic': (
+                    Research.query.get(note.research_id).subtopic if note.research_id else
+                    Project.query.get(note.project_id).subtopic if note.project_id else ''
+                )
+            }
+            for note in Note.query.filter_by(user_id=current_user.user_id).order_by(Note.created_at.desc()).all()
+        ]
+
+        # Past bookmarks are all bookmarks excluding current research_id
+        past_bookmarks = [b for b in all_bookmarks if b['research_id'] != research_id]
+
+        return jsonify({
+            'current_bookmarks': current_bookmarks,
+            'past_bookmarks': past_bookmarks
+        }), 200
+    except Exception as e:
+        print(f"Error fetching bookmarks: {str(e)}")
+        return jsonify({'error': f"Failed to fetch bookmarks: {str(e)}"}), 500
+
+@main.route('/reactivate_research/<int:research_id>', methods=['POST'])
+@login_required
+def reactivate_research(research_id):
+    try:
+        research = Research.query.filter_by(id=research_id, user_id=current_user.user_id).first()
+        if not research:
+            print(f"Research ID {research_id} not found for user {current_user.user_id}")
+            return jsonify({'error': 'Research not found.'}), 404
+
+        # Generate a new session_id
+        session_id = os.urandom(16).hex()
+        session['session_id'] = session_id
+        session['current_topic'] = research.topic or ''
+        session['chosen_subtopic'] = {'research_id': research.id, 'subtopic': research.subtopic or ''}
+        session['scraping'] = False
+        session.permanent = True
+        session.modified = True
+
+        # Deactivate other active research sessions
+        Research.query.filter_by(user_id=current_user.user_id, active=True).update({'active': False})
+        research.active = True
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Research session reactivated.',
+            'research_id': research.id,
+            'topic': research.topic or '',
+            'subtopic': research.subtopic or ''
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error reactivating research: {str(e)}")
+        return jsonify({'error': f"Failed to reactivate research: {str(e)}"}), 500
+
+@main.route('/refine_bookmarks', methods=['POST'])
+@login_required
+def refine_bookmarks():
+    data = request.get_json()
+    output_type = data.get('output_type', 'report')
+    scope = data.get('scope', 'current')  # Only refine current bookmarks
+    try:
+        current_research_id = session.get('current_research_id')
+        current_project_id = session.get('current_project_id')
+        
+        # Fetch current bookmarks
+        filters = [Note.user_id == current_user.user_id]
+        if current_research_id:
+            filters.append(Note.research_id == current_research_id)
+        if current_project_id:
+            filters.append(Note.project_id == current_project_id)
+        
+        notes = Note.query.filter(db.or_(*filters)).order_by(Note.created_at.asc()).all() if filters[1:] else []
+        if not notes:
+            print(f"No bookmarks found for user {current_user.user_id} in current session")
+            return jsonify({'error': 'No bookmarks to refine.'}), 404
+
+        # Group bookmarks into pages (max 1,000 words per page)
+        pages = []
+        current_page = []
+        current_word_count = 0
+        for note in notes:
+            word_count = len(note.content.split())
+            if current_word_count + word_count > 1000 and current_page:
+                pages.append(current_page)
+                current_page = []
+                current_word_count = 0
+            current_page.append(note.content)
+            current_word_count += word_count
+        if current_page:
+            pages.append(current_page)
+
+        print(f"Grouped {len(notes)} bookmarks into {len(pages)} pages")
+
+        # Refine each page with Grok API
+        refined_content = []
+        for i, page in enumerate(pages):
+            page_text = "\n\n".join(page)
+            prompt = f"""
+            You are an expert content curator. Take the following raw bookmark content and refine it into a coherent {output_type} (e.g., script or report). Ensure the output is concise, well-structured, and under 800 words. Include relevant context from the content and organize it logically. Provide only the refined content without additional explanations.
+            
+            Content:
+            {page_text}
+            """
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 1000,
+                "temperature": 0.5
+            }
+            try:
+                response = requests.post(GROQ_ENDPOINT, headers=headers, json=payload, timeout=30)
+                response.raise_for_status()
+                ai_response = response.json()
+                if 'choices' not in ai_response or not ai_response['choices']:
+                    print(f"No choices in API response for page {i+1}")
+                    raise ValueError("No choices in response")
+                refined_page = ai_response["choices"][0]["message"]["content"].strip()
+                refined_content.append(f"Page {i+1}\n{refined_page}")
+                print(f"Refined page {i+1}: {refined_page[:200]}...")
+            except Exception as e:
+                print(f"Error refining page {i+1}: {str(e)}")
+                return jsonify({'error': f"Failed to refine page {i+1}: {str(e)}"}), 500
+
+        final_content = "\n\n".join(refined_content)
+        print(f"Final refined content ({output_type}): {final_content[:200]}...")
+        return jsonify({'refined': final_content})
+    except Exception as e:
+        print(f"Error refining bookmarks: {str(e)}")
+        return jsonify({'error': f"Failed to refine bookmarks: {str(e)}"}), 500
+
+@main.route('/download_bookmarks_pdf', methods=['POST'])
+@login_required
+def download_bookmarks_pdf():
+    try:
+        user = User.query.get(current_user.user_id)
+        if user.tier == 'free':
+            print(f"Free tier user {current_user.user_id} attempted to download PDF")
+            return jsonify({'error': 'PDF download is available for premium users only.'}), 403
+
+        data = request.get_json()
+        content = data.get('content', '')
+        if not content:
+            print(f"No content provided for PDF download for user {current_user.user_id}")
+            return jsonify({'error': 'No content to download.'}), 400
+
+        print(f"Generating PDF for user {current_user.user_id} with content: {content[:100]}...")
+        return jsonify({'content': content})
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")
+        return jsonify({'error': f"Failed to generate PDF: {str(e)}"}), 500
+
+
+@main.route('/get_profile', methods=['GET'])
+@login_required
+def get_profile():
+    try:
+        user = User.query.get(current_user.user_id)
+        if not user:
+            print(f"User ID {current_user.user_id} not found")
+            return jsonify({'error': 'User not found.'}), 404
+
+        return jsonify({
+            'name': user.username or 'N/A',
+            'email': user.email or 'N/A',
+            'subscription': user.tier or "N/A" 
+        }), 200
+    except Exception as e:
+        print(f"Error fetching profile: {str(e)}")
+        return jsonify({'error': f"Failed to fetch profile: {str(e)}"}), 500
+
+@main.route('/update_password', methods=['POST'])
+@login_required
+def update_password():
+    try:
+        data = request.get_json()
+        password = data.get('password')
+        if not password:
+            return jsonify({'error': 'Password is required.'}), 400
+        if len(password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters.'}), 400
+
+        user = User.query.get(current_user.user_id)
+        if not user:
+            print(f"User ID {current_user.user_id} not found")
+            return jsonify({'error': 'User not found.'}), 404
+
+        # Hash the new password using werkzeug.security
+        user.password = generate_password_hash(password, method='pbkdf2:sha256')
+        db.session.commit()
+
+        print(f"Password updated for user {current_user.user_id}")
+        return jsonify({'message': 'Password updated successfully.'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating password: {str(e)}")
+        return jsonify({'error': f"Failed to update password: {str(e)}"}), 500
+
+@main.route('/upgrade_subscription', methods=['POST'])
+@login_required
+def upgrade_subscription():
+    try:
+        user = User.query.get(current_user.user_id)
+        if not user:
+            print(f"User ID {current_user.user_id} not found")
+            return jsonify({'error': 'User not found.'}), 404
+
+        # Check if user already has a premium subscription
+        current_subscription = getattr(user, 'subscription', 'Free')
+        if current_subscription == 'SuperGrok':
+            return jsonify({'error': 'Already on SuperGrok plan.'}), 400
+
+        # Redirect to xAI's subscription page (per xAI guidelines)
+        redirect_url = 'https://x.ai/grok'  # Replace with actual payment portal if needed
+        return jsonify({'redirect_url': redirect_url}), 200
+
+        # Optional: If managing subscriptions internally, uncomment below
+        # user.subscription = 'SuperGrok'
+        # db.session.commit()
+        # print(f"Subscription upgraded to SuperGrok for user {current_user.user_id}")
+        # return jsonify({'message': 'Subscription upgraded successfully.'}), 200
+    except Exception as e:
+        print(f"Error upgrading subscription: {str(e)}")
+        return jsonify({'error': f"Failed to upgrade subscription: {str(e)}"}), 500

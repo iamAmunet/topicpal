@@ -59,6 +59,7 @@ def generate_keypoints(results):
     prompt = f"""
     Generate 5-10 key points as bullet points based on this scraped data.
     Focus on the most important insights from titles and snippets, citing sources (e.g., 'Source: duckduckgo').
+    And also add some of your own insights to the bullet points relavant to the scraped data
     Format: - Insight (Source: source_name)
     Data:
     {data_str}
@@ -91,6 +92,7 @@ def generate_deep_dive(results):
     prompt = f"""
     Provide a detailed analysis in 2-3 paragraphs based on this scraped data.
     Synthesize information from titles, snippets, and sources into a coherent narrative.
+    and if there is not enough info in the snippets, add more information based on the title and
     Cite sources in text (e.g., 'according to duckduckgo'). and also expand on it with information relavant to the scraped data
     Data:
     {data_str}
@@ -122,6 +124,7 @@ def generate_summary(results):
     print(f"Summary input data: {data_str[:500]}...")  # Log input data
     prompt = f"""
     Summarize this scraped data in 1-2 paragraphs, highlighting key findings from titles and snippets.
+    but dont make it to light make it as detailed as possible starting with an intro you feel fits the topics and
     Cite sources in text (e.g., 'according to duckduckgo').
     Data:
     {data_str}

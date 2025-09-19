@@ -5,6 +5,7 @@ import time
 import urllib.parse
 from functools import lru_cache
 import json
+from langdetect import detect
 
 # Expanded User-Agent list
 HEADERS_LIST = [
@@ -34,8 +35,8 @@ def safe_request(url, max_retries=3, timeout=3):  # Reduced timeout
             time.sleep(random.uniform(1, 2))
     return None
 
-@lru_cache(maxsize=100)
-def scrape_duckduckgo(query, max_results=5):
+@lru_cache(maxsize=200)
+def scrape_duckduckgo(query, max_results=10):
     """Scrape DuckDuckGo with snippets and clean URLs."""
     url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
     response = safe_request(url)
@@ -148,7 +149,7 @@ def scrape_google_scholar(query, max_results=3):
     print(f"Google Scholar results for {query}: {json.dumps(results, indent=2)[:500]}...")
     return results
 
-@lru_cache(maxsize=50)
+@lru_cache(maxsize=80)
 def fetch_page_snippet(url, max_length=300):
     """Fetch a short snippet from the actual page."""
     if not url.startswith(('http://', 'https://')):

@@ -1,0 +1,174 @@
+```html
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>TopicPal/blog</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif;
+            }
+            body {
+                background-color: #f5f5f5;
+                color: #333;
+            }
+            nav {
+                position: fixed;
+                top: 0;
+                width: 100%;
+                background-color: #222;
+                padding: 1rem;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                z-index: 1000;
+            }
+            nav ul {
+                display: flex;
+                justify-content: right;
+                list-style: none;
+            }
+            nav ul li {
+                margin: 0 1.5rem;
+            }
+            nav ul li a {
+                color: #fff;
+                text-decoration: none;
+                font-size: 1.1rem;
+                transition: color 0.3s, transform 0.3s;
+            }
+            nav ul li a:hover {
+                color: #ff6600;
+                transform: scale(1.05);
+            }
+            section {
+                margin-top: 52px;
+                padding-left: 20px;
+            }
+            .sidebar {
+                display: flex;
+                width: 220px;
+                height: 100%;
+                position: fixed;
+                flex-direction: column;
+                padding: 1rem;
+                left: 0;
+                background-color: #333;
+                color: white;
+            }
+            .sidebar ul {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+            .sidebar ul li {
+                padding: 16px 5px;
+            }
+            .sidebar ul li button {
+                padding: 16px 20px;
+                background: none;
+                border: none;
+                color: #f5f5f5;
+                text-align: left;
+                width: 100%;
+                cursor: pointer;
+            }
+            .sidebar ul li button:hover {
+                background: rgb(94, 94, 94);
+            }
+            .main-section {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            .content {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                padding-left: 225px;
+                padding-right: 20px;
+            }
+            .content h1 {
+                margin: 20px;
+            }
+            .content p {
+                margin: 20px;
+            }
+            .error-message {
+                color: red;
+                margin: 20px;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('main.home') }}">Home</a></li>
+                <li><a href="{{ url_for('main.pricing') }}">Pricing</a></li>
+                <li><a href="{{ url_for('main.about') }}">About Us</a></li>
+                <li><a href="{{ url_for('main.blog') }}">Blog</a></li>
+                <li><a href="{{ url_for('main.login') }}">Login</a></li>
+                <li><a href="{{ url_for('main.signup') }}">Signup</a></li>
+            </ul>
+        </nav>
+        <section>
+            <div class="sidebar">
+                <ul>
+                    {% for content in contents %}
+                    <li><button class="load-content" data-content-id="{{ content.id }}">{{ content.title | truncate(20) }}</button></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="main-section">
+                <div class="content" id="content-area">
+                    {% if contents %}
+                    <h1>{{ contents[0].title }}</h1>
+                    <p>{{ contents[0].content }}</p>
+                    {% else %}
+                    <p>No content available.</p>
+                    {% endif %}
+                </div>
+                <p class="error-message" id="error-message"></p>
+            </div>
+        </section>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const contentArea = document.getElementById('content-area');
+                const errorMessage = document.getElementById('error-message');
+
+                function showError(message) {
+                    errorMessage.textContent = message;
+                    errorMessage.style.display = 'block';
+                    setTimeout(() => {
+                        errorMessage.style.display = 'none';
+                    }, 5000);
+                }
+
+                document.querySelectorAll('.load-content').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const contentId = btn.dataset.contentId;
+                        try {
+                            const res = await fetch(`/load_content/${contentId}`, {
+                                method: 'GET',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (!res.ok) throw new Error(`Loading content failed: ${res.status}`);
+                            const data = await res.json();
+                            console.log('Loaded content:', data);
+                            contentArea.innerHTML = `
+                                <h1>${data.title}</h1>
+                                <p>${data.content}</p>
+                            `;
+                            errorMessage.style.display = 'none';
+                        } catch (err) {
+                            console.error('Error loading content:', err);
+                            showError('Failed to load content');
+                        }
+                    });
+                });
+            });
+        </script>
+    </body>
+</html>
+```

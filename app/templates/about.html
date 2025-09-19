@@ -113,9 +113,9 @@
         <nav>
             <ul>
                 <li><a href="{{ url_for('main.home') }}">Home</a></li>
-                <li><a href="#">Pricing</a></li>
-                <li><a href="#">About Us</a></li>
-                <li><a href="#">Blog</a></li>
+                <li><a href="{{ url_for('main.pricing') }}">Pricing</a></li>
+                <li><a href="{{ url_for('main.about') }}">About Us</a></li>
+                <li><a href="{{ url_for('main.blog') }}">Blog</a></li>
                 <li><a href="{{ url_for('main.login') }}">Login</a></li>
                 <li><a href="{{ url_for('main.signup') }}">Signup</a></li>
             </ul>
