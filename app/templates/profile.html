@@ -19,6 +19,7 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .container {
@@ -127,6 +128,55 @@
             border-radius: 4px;
         }
 
+        /* Theme styles */
+        body.dark {
+            background-color: #333;
+            color: #fff;
+        }
+
+        body.dark .card {
+            background-color: #444;
+        }
+
+        body.dark .card h2,
+        body.dark .card p strong {
+            color: #fff;
+        }
+
+        body.dark .card p {
+            color: #ccc;
+        }
+
+        body.dark .password-form input {
+            background-color: #555;
+            color: #fff;
+            border-color: #666;
+        }
+
+        body.blue {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        body.blue .card {
+            background-color: #bbdefb;
+        }
+
+        body.blue .card h2,
+        body.blue .card p strong {
+            color: #0d47a1;
+        }
+
+        body.blue .card p {
+            color: #1565c0;
+        }
+
+        body.blue .password-form input {
+            background-color: #fff;
+            color: #0d47a1;
+            border-color: #90caf9;
+        }
+
         @media (max-width: 500px) {
             .card {
                 padding: 20px;
@@ -143,7 +193,7 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ theme_color }}">
     <div class="container">
         <div class="card">
             <div class="card-header">

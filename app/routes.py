@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 from flask_login import login_required, current_user, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from .models import User, Project, Research, Note, Blog
+from .models import User, Project, Research, Note, Blog, Settings
 from . import db
 import re
 from dotenv import load_dotenv
@@ -13,10 +13,19 @@ from .scrapper2 import tavily_enhanced_scraper
 from .config import GROQ_API_KEY, GROQ_ENDPOINT
 from .ai_utils import generate_keypoints, generate_deep_dive, generate_sources, generate_summary
 from datetime import timedelta, datetime
+from flask_login import login_user, current_user
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
+from flask_mail import Message
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from . import db, mail
+import uuid
+
 
 load_dotenv()
 
 main = Blueprint('main', __name__)
+s = URLSafeTimedSerializer(os.getenv('FLASK_SECRET_KEY', 'your-secure-secret-key-1234567890'))
 
 @main.route('/')
 def home():
@@ -34,17 +43,102 @@ def blog():
     print(f"Contents: {[c.id for c in contents]}")
     return render_template('blog.html', contents=contents)
 
+@main.route('/load_contents/<int:content_id>', methods=['GET'])
+def load_contents(content_id):
+    try:
+        content = Blog.query.get(content_id)
+        if not content:
+            return jsonify({'error': 'Content not found'}), 404
+        return jsonify({
+            'title': content.title,
+            'content': content.content
+        })
+    except Exception as e:
+        print(f"Error loading content {content_id}: {e}")
+        return jsonify({'error': 'Server error'}), 500
+
 @main.route('/about')
 def about():
     return render_template('about.html')
+
+@main.route('/setting')
+def setting():
+    return render_template('setting.html')
+
+@main.route('/get_settings', methods=['GET'])
+@login_required
+def get_settings():
+    try:
+        settings = Settings.query.filter_by(user_id=current_user.user_id).first()
+        if not settings:
+            # Return default settings if none exist
+            return jsonify({
+                'theme_color': 'light',
+                'notifications': False,
+                'default_view': 'chat'
+            }), 200
+        return jsonify({
+            'theme_color': settings.theme_color,
+            'notifications': settings.notifications,
+            'default_view': settings.default_view
+        }), 200
+    except Exception as e:
+        print(f"Error fetching settings for user {current_user.user_id}: {str(e)}")
+        return jsonify({'error': f"Failed to fetch settings: {str(e)}"}), 500
+
+@main.route('/save_settings', methods=['POST'])
+@login_required
+def save_settings():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        theme_color = data.get('theme_color', 'light')
+        notifications = data.get('notifications', False)
+        default_view = data.get('default_view', 'chat')
+
+        # Validate inputs
+        valid_themes = ['light', 'dark', 'blue']
+        valid_views = ['chat', 'form']
+        if theme_color not in valid_themes or default_view not in valid_views:
+            return jsonify({'error': 'Invalid theme or view'}), 400
+
+        # Check if settings exist
+        settings = Settings.query.filter_by(user_id=current_user.user_id).first()
+        if settings:
+            # Update existing settings
+            settings.theme_color = theme_color
+            settings.notifications = notifications
+            settings.default_view = default_view
+        else:
+            # Create new settings
+            settings = Settings(
+                user_id=current_user.user_id,
+                theme_color=theme_color,
+                notifications=notifications,
+                default_view=default_view
+            )
+            db.session.add(settings)
+
+        db.session.commit()
+        print(f"Saved settings for user {current_user.user_id}: {theme_color}, {notifications}, {default_view}")
+        return jsonify({'message': 'Settings saved successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving settings for user {current_user.user_id}: {str(e)}")
+        return jsonify({'error': f"Failed to save settings: {str(e)}"}), 500
+
 
 
 @main.route('/profile')
 @login_required
 def profile():
-    return render_template('profile.html')
+    settings = Settings.query.filter_by(user_id=current_user.user_id).first()
+    theme_color = settings.theme_color if settings else 'light'
+    return render_template('profile.html', user=current_user, theme_color=theme_color)
 
-@main.route('/new_research', methods=['POST'])
+@main.route('/new_research')
 @login_required
 def new_research():
     try:
@@ -61,11 +155,13 @@ def new_research():
         Research.query.filter_by(user_id=current_user.user_id, active=True).update({'active': False})
         db.session.commit()
 
-        return jsonify({'message': 'New research session started.'}), 200
+        return render_template("dashboard.html", user=current_user)
+
     except Exception as e:
         db.session.rollback()
         print(f"Error starting new research: {str(e)}")
         return jsonify({'error': f"Failed to start new research: {str(e)}"}), 500
+        
 
 @main.route('/dashboard')
 @login_required
@@ -116,7 +212,10 @@ def dashboard():
 
     projects = Project.query.filter_by(user_id=current_user.user_id).order_by(Project.created_at.desc()).all()
     print(f"Current user: {current_user.user_id}, Session: {dict(session)}, Projects: {[p.id for p in projects]}")
-    return render_template("dashboard.html", user=current_user, projects=projects)
+    settings = Settings.query.filter_by(user_id=current_user.user_id).first()
+    theme_color = settings.theme_color if settings else 'light'
+    default_view = settings.default_view if settings else 'chat'
+    return render_template("dashboard.html", user=current_user, projects=projects, theme_color=theme_color, default_view=default_view)
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
@@ -134,6 +233,115 @@ def login():
             flash("Invalid email or password.", "danger")
             return redirect(url_for('main.login'))
     return render_template('login.html')
+
+
+@main.route('/forgot_password', methods=['POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    
+    email = request.form.get('email')
+    user = User.query.filter_by(email=email).first()
+    
+    if user:
+        token = s.dumps(email, salt='password-reset-salt')
+        reset_url = url_for('main.reset_password', token=token, _external=True)
+        msg = Message(
+            subject='Topicpal Password Reset',
+            recipients=[email],
+            body=f'Click this link to reset your password: {reset_url}\nThis link expires in 1 hour.'
+        )
+        try:
+            mail.send(msg)
+            flash('A password reset link has been sent to your email.', 'success')
+        except Exception as e:
+            flash('Error sending email. Please try again later.', 'danger')
+            print(f"Mail error: {e}")
+    else:
+        flash('No account found with that email.', 'danger')
+    
+    return redirect(url_for('main.login'))
+
+
+@main.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    
+    try:
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)  # 1-hour expiry
+    except SignatureExpired:
+        flash('The reset link has expired.', 'danger')
+        return redirect(url_for('main.login'))
+    except:
+        flash('Invalid reset link.', 'danger')
+        return redirect(url_for('main.login'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+            return render_template('reset_password.html')
+        
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
+            return render_template('reset_password.html')
+        
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.password_hash = generate_password_hash(password)
+            db.session.commit()
+            flash('Your password has been updated! Please log in.', 'success')
+            return redirect(url_for('main.login'))
+        else:
+            flash('User not found.', 'danger')
+            return redirect(url_for('main.login'))
+    
+    return render_template('reset_password.html')
+
+
+@main.route('/google-login', methods=['POST'])
+def google_login():
+    if current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Already logged in'})
+    
+    token = request.json.get('token')
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            '238751018517-0b4hj9qn3j5k9q74180f7siq8b295ing.apps.googleusercontent.com'  # Replace with your Client ID
+        )
+        email = idinfo['email']
+        name = idinfo.get('name', '')
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            random_password = str(uuid.uuid4())
+            user = User(
+                email=email,
+                username=name or email.split('@')[0],
+                password_hash=generate_password_hash(random_password),
+                trial_start=datetime.utcnow(),
+                trial_end=datetime.utcnow() + timedelta(days=14),
+                tier='free',
+                scraper_contraints=10,
+                bookmark_contraints=40
+            )
+            db.session.add(user)
+            db.session.commit()
+        
+        login_user(user)
+        flash('Logged in with Google successfully!', 'success')
+        return jsonify({'success': True, 'redirect': url_for('main.dashboard')})
+    
+    except ValueError as e:
+        return jsonify({'success': False, 'error': 'Invalid Google token'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @main.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -323,7 +531,7 @@ def get_subtopics():
         return jsonify({
             "subtopics": result["subtopics"],
             "search_terms": result["search_terms"],
-            "research_id": research.id
+            "research_id": str(research.id)
         })
 
     except requests.exceptions.Timeout:
@@ -346,7 +554,7 @@ def get_subtopics():
         return jsonify({
             "subtopics": result["subtopics"],
             "search_terms": result["search_terms"],
-            "research_id": research.id
+            "research_id": str(research.id)
         }), 500
     except requests.exceptions.HTTPError as e:
         print(f"HTTP error: {e.response.status_code} - {e.response.text}")
@@ -368,7 +576,7 @@ def get_subtopics():
         return jsonify({
             "subtopics": result["subtopics"],
             "search_terms": result["search_terms"],
-            "research_id": research.id
+            "research_id": str(research.id)
         }), 500
     except KeyError as e:
         print(f"Key error in response: {e}")
@@ -391,7 +599,7 @@ def get_subtopics():
         return jsonify({
             "subtopics": result["subtopics"],
             "search_terms": result["search_terms"],
-            "research_id": research.id
+            "research_id": str(research.id)
         }), 500
     except Exception as e:
         print(f"Grok API error: {e}")
@@ -413,7 +621,7 @@ def get_subtopics():
         return jsonify({
             "subtopics": result["subtopics"],
             "search_terms": result["search_terms"],
-            "research_id": research.id
+            "research_id": str(research.id)
         }), 500
 
 def naive_subtopics(topic: str) -> dict:
@@ -462,7 +670,7 @@ def remember_subtopic():
         session['chosen_subtopic'] = {'subtopic': subtopic, 'research_id': research.id}
         session.modified = True
         print(f"Updated Research ID {research.id} with subtopic '{subtopic}'")
-        return jsonify({"message": "Subtopic saved", "research_id": research.id})
+        return jsonify({"message": "Subtopic saved", "research_id": str(research.id)})
     except Exception as e:
         print(f"Error saving subtopic: {e}")
         return jsonify({"error": str(e)}), 500
@@ -485,19 +693,19 @@ def run_scraper():
     session.modified = True
 
     try:
-        # Check user tier here for future paid scraper (e.g., Tavily)
-        # if current_user.is_premium:
-        #     scraped_results = tavily_enhanced_scraper(search_terms)
-        # else:
-        #     scraped_results = free_scraper(tuple(search_terms))
-
-        if current_user.tier == "paid":
+        if current_user.tier == "basic" or current_user.tier == "unlimited":
             print("running paid scraper.....")
             scraped_results = tavily_enhanced_scraper(search_terms)
 
         else:
-            print("running free scraper.....")
-            scraped_results = free_scraper(tuple(search_terms))
+            if current_user.scraper_contraints > 0:
+                print("running free scraper.....")
+                scraped_results = free_scraper(tuple(search_terms))
+                current_user.scraper_contraints = current_user.scraper_contraints - 1
+                db.session.commit()
+            else:
+                print("limit reached upgrade to scrape more data")
+                return jsonify({"message": "limit reached upgrade!", "Status": "limit reached, upgrade"})
         
         print(f"Scraper raw results: {json.dumps(scraped_results, indent=2)}")
 
@@ -596,7 +804,7 @@ def get_research(research_id):
         if not session_id:
             # Legacy records without session_id, return single record
             data = {
-                'topic': research.topic,
+                'topic': str(research.topic),
                 'subtopic': research.subtopic,
                 'scraper_results': research.scraper_results if research.scraper_results else None,
                 'chat_history': research.chat_history if research.chat_history else []
@@ -662,7 +870,7 @@ def get_latest_research():
         aggregated_chat_history.sort(key=lambda x: x['timestamp'])
 
         data = {
-            "id": latest_research.id,
+            "id": str(latest_research.id),
             "topic": latest_research.topic,
             "subtopic": latest_research.subtopic,
             "scraper_results": latest_research.scraper_results,
@@ -726,7 +934,7 @@ def save_research():
             return jsonify({"error": f"Failed to save project: {str(e)}"}), 500
 
         print(f"Saved Project ID {project.id} for user {current_user.user_id}")
-        return jsonify({"message": "Research saved as project", "project_id": project.id})
+        return jsonify({"message": "Research saved as project", "project_id": str(project.id)})
     except Exception as e:
         print(f"Error saving project: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -773,7 +981,7 @@ def load_project(project_id):
 
         return jsonify({
             'message': 'Project loaded',
-            'research_id': research.id,
+            'research_id': str(research.id),
             'topic': project.topic,
             'subtopic': project.subtopic,
             'scraper_results': project.scraper_results,
@@ -808,7 +1016,9 @@ def load_content(content_id):
 @main.route('/bookmark', methods=['GET'])
 @login_required
 def bookmark_page():
-    return render_template("bookmarkwork.html")
+    settings = Settings.query.filter_by(user_id=current_user.user_id).first()
+    theme_color = settings.theme_color if settings else 'light'
+    return render_template("bookmarkwork.html", theme_color=theme_color)
 
 @main.route('/bookmark', methods=['POST'])
 @login_required
@@ -837,7 +1047,7 @@ def bookmark():
             active=True
         ).first()
         if not research:
-            print(f"Invalid research_id {research_id} for user {current_user.user_id}")
+            print(f"Invalid research_id {str(research_id)} for user {current_user.user_id}")
             return jsonify({'error': 'Invalid research ID.'}), 400
     else:
         research = Research.query.filter_by(
@@ -1001,12 +1211,12 @@ def get_bookmarks():
             if active_research:
                 current_bookmarks = [
                     {
-                        'id': note.id,
+                        'id': str(note.id),
                         'content': note.content,
                         'source': note.source or 'No source',
                         'created_at': note.created_at.isoformat(),
-                        'research_id': note.research_id,
-                        'project_id': note.project_id
+                        'research_id': str(note.research_id) if note.research_id else None,
+                        'project_id': str(note.project_id) if note.project_id else None
                     }
                     for note in Note.query.filter_by(
                         user_id=current_user.user_id,
@@ -1017,12 +1227,12 @@ def get_bookmarks():
         # Fetch all bookmarks for the user
         all_bookmarks = [
             {
-                'id': note.id,
+                'id': str(note.id),
                 'content': note.content,
                 'source': note.source or 'No source',
                 'created_at': note.created_at.isoformat(),
-                'research_id': note.research_id,
-                'project_id': note.project_id,
+                'research_id': str(note.research_id) if note.research_id else None,
+                'project_id': str(note.project_id) if note.project_id else None,
                 'topic': (
                     Research.query.get(note.research_id).topic if note.research_id else
                     Project.query.get(note.project_id).topic if note.project_id else 'Unknown'
@@ -1071,7 +1281,7 @@ def reactivate_research(research_id):
 
         return jsonify({
             'message': 'Research session reactivated.',
-            'research_id': research.id,
+            'research_id': str(research.id),
             'topic': research.topic or '',
             'subtopic': research.subtopic or ''
         }), 200
@@ -1080,85 +1290,94 @@ def reactivate_research(research_id):
         print(f"Error reactivating research: {str(e)}")
         return jsonify({'error': f"Failed to reactivate research: {str(e)}"}), 500
 
+
 @main.route('/refine_bookmarks', methods=['POST'])
 @login_required
 def refine_bookmarks():
     data = request.get_json()
     output_type = data.get('output_type', 'report')
     scope = data.get('scope', 'current')  # Only refine current bookmarks
+    bookmarks = data.get('bookmarks', [])  # List of bookmarks sent from frontend (current page)
+
     try:
-        current_research_id = session.get('current_research_id')
-        current_project_id = session.get('current_project_id')
+        if not bookmarks:
+            print(f"No bookmarks provided for refinement by user {current_user.user_id}")
+            return jsonify({'error': 'No bookmarks to refine.'}), 400
+
+        # Validate session for consistency
+        chosen_subtopic = session.get('chosen_subtopic', {})
+        research_id = chosen_subtopic.get('research_id')
+        if not research_id and scope == 'current':
+            print(f"No active research session for user {current_user.user_id} (no research_id in chosen_subtopic)")
+            return jsonify({'error': 'No active research session. Start a new topic to bookmark.'}), 404
+
+        # Package bookmarks with detailed structure
+        page_text_parts = []
+        total_words = 0
+        for i, bookmark in enumerate(bookmarks, 1):
+            content = bookmark.get('content', '').strip()
+            source = bookmark.get('source', 'N/A').strip()
+            if not content:
+                print(f"Empty content for bookmark {i} by user {current_user.user_id}")
+                continue
+            word_count = len(content.split())
+            total_words += word_count
+            page_text_parts.append(f"Bookmark {i}:\nContent: {content}\nSource: {source}\nWord Count: {word_count}\n")
+        page_text = "\n".join(page_text_parts)
         
-        # Fetch current bookmarks
-        filters = [Note.user_id == current_user.user_id]
-        if current_research_id:
-            filters.append(Note.research_id == current_research_id)
-        if current_project_id:
-            filters.append(Note.project_id == current_project_id)
-        
-        notes = Note.query.filter(db.or_(*filters)).order_by(Note.created_at.asc()).all() if filters[1:] else []
-        if not notes:
-            print(f"No bookmarks found for user {current_user.user_id} in current session")
-            return jsonify({'error': 'No bookmarks to refine.'}), 404
+        if not page_text.strip():
+            print(f"No valid bookmark content for user {current_user.user_id}")
+            return jsonify({'error': 'No valid bookmark content to refine.'}), 400
 
-        # Group bookmarks into pages (max 1,000 words per page)
-        pages = []
-        current_page = []
-        current_word_count = 0
-        for note in notes:
-            word_count = len(note.content.split())
-            if current_word_count + word_count > 1000 and current_page:
-                pages.append(current_page)
-                current_page = []
-                current_word_count = 0
-            current_page.append(note.content)
-            current_word_count += word_count
-        if current_page:
-            pages.append(current_page)
+        print(f"Refining {len(bookmarks)} bookmarks for user {current_user.user_id}, total words: {total_words}")
+        print(f"Input to Groq API: {page_text[:500]}..." if len(page_text) > 500 else f"Input to Groq API: {page_text}")
 
-        print(f"Grouped {len(notes)} bookmarks into {len(pages)} pages")
+        # Enhanced prompt for comprehensive output
+        prompt = f"""
+        You are an expert content curator tasked with creating a polished {output_type} (e.g., report or script) from the following bookmark content related to a specific research topic. Your goal is to produce a detailed, well-structured output of 500-800 words, fully synthesizing all provided bookmarks. Include key points, insights, and source references where relevant. Organize the content logically with an introduction, main sections with descriptive headings, and a conclusion (for reports) or a clear narrative flow (for scripts). Ensure the output is engaging, informative, and avoids redundancy. Do not summarize excessively; incorporate all relevant details from the bookmarks. Provide only the refined content without additional explanations.
 
-        # Refine each page with Grok API
-        refined_content = []
-        for i, page in enumerate(pages):
-            page_text = "\n\n".join(page)
-            prompt = f"""
-            You are an expert content curator. Take the following raw bookmark content and refine it into a coherent {output_type} (e.g., script or report). Ensure the output is concise, well-structured, and under 800 words. Include relevant context from the content and organize it logically. Provide only the refined content without additional explanations.
-            
-            Content:
-            {page_text}
-            """
-            headers = {
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 1000,
-                "temperature": 0.5
-            }
-            try:
-                response = requests.post(GROQ_ENDPOINT, headers=headers, json=payload, timeout=30)
-                response.raise_for_status()
-                ai_response = response.json()
-                if 'choices' not in ai_response or not ai_response['choices']:
-                    print(f"No choices in API response for page {i+1}")
-                    raise ValueError("No choices in response")
-                refined_page = ai_response["choices"][0]["message"]["content"].strip()
-                refined_content.append(f"Page {i+1}\n{refined_page}")
-                print(f"Refined page {i+1}: {refined_page[:200]}...")
-            except Exception as e:
-                print(f"Error refining page {i+1}: {str(e)}")
-                return jsonify({'error': f"Failed to refine page {i+1}: {str(e)}"}), 500
+        Bookmarks:
+        {page_text}
 
-        final_content = "\n\n".join(refined_content)
-        print(f"Final refined content ({output_type}): {final_content[:200]}...")
-        return jsonify({'refined': final_content})
+        Instructions:
+        - Synthesize all bookmarks into a unified {output_type}, using all provided content.
+        - Use clear section headings (e.g., Introduction, Key Findings, Conclusion for reports).
+        - Reference sources explicitly (e.g., "According to [source]...") when appropriate.
+        - Ensure the output is 500-800 words, fully utilizing the provided bookmark content.
+        - Integrate multiple bookmarks seamlessly, avoiding repetition and ensuring coherence.
+        - If content is extensive, prioritize key insights while maintaining detail.
+        """
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama-3.1-8b-instant",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 2000,  # Increased to ensure full output
+            "temperature": 0.5
+        }
+        try:
+            response = requests.post(GROQ_ENDPOINT, headers=headers, json=payload, timeout=60)
+            response.raise_for_status()
+            ai_response = response.json()
+            if 'choices' not in ai_response or not ai_response['choices']:
+                print(f"No choices in API response for refinement by user {current_user.user_id}")
+                return jsonify({'error': 'No valid response from refinement service'}), 500
+            refined_content = ai_response["choices"][0]["message"]["content"].strip()
+            if not refined_content:
+                print(f"Empty response from Groq API for user {current_user.user_id}")
+                return jsonify({'error': 'Refinement service returned empty content'}), 500
+            refined_word_count = len(refined_content.split())
+            print(f"Refined content ({output_type}, {refined_word_count} words): {refined_content[:200]}...")
+            return jsonify({'refined': refined_content})
+        except Exception as e:
+            print(f"Error refining bookmarks for user {current_user.user_id}: {str(e)}")
+            return jsonify({'error': f"Failed to refine bookmarks: {str(e)}"}), 500
+
     except Exception as e:
-        print(f"Error refining bookmarks: {str(e)}")
-        return jsonify({'error': f"Failed to refine bookmarks: {str(e)}"}), 500
+        print(f"Error processing refinement request for user {current_user.user_id}: {str(e)}")
+        return jsonify({'error': f"Failed to process refinement request: {str(e)}"}), 500
 
 @main.route('/download_bookmarks_pdf', methods=['POST'])
 @login_required
@@ -1171,16 +1390,32 @@ def download_bookmarks_pdf():
 
         data = request.get_json()
         content = data.get('content', '')
+        scope = data.get('scope', 'current')  # 'current' or 'refined'
+
         if not content:
+            # Fallback: Fetch content from current session bookmarks
+            chosen_subtopic = session.get('chosen_subtopic', {})
+            research_id = chosen_subtopic.get('research_id')
+            if not research_id:
+                print(f"No active research session for user {current_user.user_id} (no research_id in chosen_subtopic)")
+                return jsonify({'error': 'No content available. Start a research session to bookmark.'}), 400
+
+            notes = Note.query.filter_by(user_id=current_user.user_id, research_id=research_id).order_by(Note.created_at.asc()).all()
+            if not notes:
+                print(f"No bookmarks found for user {current_user.user_id} in current session (research_id: {research_id})")
+                return jsonify({'error': 'No bookmarks to download.'}), 400
+
+            content = '\n\n'.join([f"Bookmark {i+1}:\n{note.content}\nSource: {note.source or 'N/A'}" for i, note in enumerate(notes)])
+
+        if not content.strip():
             print(f"No content provided for PDF download for user {current_user.user_id}")
             return jsonify({'error': 'No content to download.'}), 400
 
         print(f"Generating PDF for user {current_user.user_id} with content: {content[:100]}...")
         return jsonify({'content': content})
     except Exception as e:
-        print(f"Error generating PDF: {str(e)}")
+        print(f"Error generating PDF for user {current_user.user_id}: {str(e)}")
         return jsonify({'error': f"Failed to generate PDF: {str(e)}"}), 500
-
 
 @main.route('/get_profile', methods=['GET'])
 @login_required
@@ -1252,4 +1487,4 @@ def upgrade_subscription():
         # return jsonify({'message': 'Subscription upgraded successfully.'}), 200
     except Exception as e:
         print(f"Error upgrading subscription: {str(e)}")
-        return jsonify({'error': f"Failed to upgrade subscription: {str(e)}"}), 500
+        return jsonify({'error': f"Failed to upgrade subscription: {str(e)}"}), 50

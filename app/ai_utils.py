@@ -2,7 +2,7 @@ import requests
 import json
 from .config import GROQ_API_KEY, GROQ_ENDPOINT
 
-def call_grok(prompt, model="llama-3.1-8b-instant"):
+def call_grok(prompt, model="gemma2-9b-it"):
     """Call Grok API for content generation."""
     if not GROQ_API_KEY:
         print("Error: GROQ_API_KEY not set.")

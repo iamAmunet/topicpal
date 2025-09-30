@@ -14,6 +14,7 @@
     body {
       padding: 2rem;
       background-color: #f5f5f5;
+      transition: background-color 0.3s, color 0.3s;
     }
     .bookmark-container {
       max-width: 1200px;
@@ -146,9 +147,80 @@
       justify-content: flex-end;
       margin-bottom: 1rem;
     }
+    /* Theme styles */
+    body.dark {
+      background-color: #333;
+      color: #fff;
+    }
+    body.dark .bookmark-container {
+      background-color: #444;
+    }
+    body.dark .sidebar {
+      background-color: #555;
+    }
+    body.dark .main-content h2,
+    body.dark .main-content h3,
+    body.dark .past-group h4 {
+      color: #fff;
+    }
+    body.dark #currentBookmarks p,
+    body.dark #pastWorks p,
+    body.dark #refinedContent {
+      background-color: #666;
+    }
+    body.dark .past-group:hover {
+      background-color: #777;
+    }
+    body.dark .source {
+      color: #ccc;
+    }
+    body.dark button, body.dark select {
+      background-color: #ff6600;
+    }
+    body.dark button:hover, body.dark select:hover {
+      background-color: #e65c00;
+    }
+    body.dark .page {
+      border-bottom-color: #888;
+    }
+    body.blue {
+      background-color: #e3f2fd;
+      color: #0d47a1;
+    }
+    body.blue .bookmark-container {
+      background-color: #bbdefb;
+    }
+    body.blue .sidebar {
+      background-color: #90caf9;
+    }
+    body.blue .main-content h2,
+    body.blue .main-content h3,
+    body.blue .past-group h4 {
+      color: #0d47a1;
+    }
+    body.blue #currentBookmarks p,
+    body.blue #pastWorks p,
+    body.blue #refinedContent {
+      background-color: #e1f5fe;
+    }
+    body.blue .past-group:hover {
+      background-color: #64b5f6;
+    }
+    body.blue .source {
+      color: #1565c0;
+    }
+    body.blue button, body.blue select {
+      background-color: #1976d2;
+    }
+    body.blue button:hover, body.blue select:hover {
+      background-color: #1565c0;
+    }
+    body.blue .page {
+      border-bottom-color: #90caf9;
+    }
   </style>
 </head>
-<body>
+<body class="{{ theme_color }}">
   <div class="bookmark-container">
     <div class="main-content">
       <h2>Bookmarked Work</h2>
@@ -177,298 +249,295 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const currentBookmarksDiv = document.getElementById('currentBookmarks');
-    const pastWorksDiv = document.getElementById('pastWorks');
-    const refinedContentDiv = document.getElementById('refinedContent');
-    const refineTypeSelect = document.getElementById('refineType');
-    const prevPageBtn = document.getElementById('prevPage');
-    const nextPageBtn = document.getElementById('nextPage');
-    const pageInfoSpan = document.getElementById('pageInfo');
-    let currentPage = 0;
-    let pages = [];
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const currentBookmarksDiv = document.getElementById('currentBookmarks');
+      const pastWorksDiv = document.getElementById('pastWorks');
+      const refinedContentDiv = document.getElementById('refinedContent');
+      const refineTypeSelect = document.getElementById('refineType');
+      const prevPageBtn = document.getElementById('prevPage');
+      const nextPageBtn = document.getElementById('nextPage');
+      const pageInfoSpan = document.getElementById('pageInfo');
+      let currentPage = 0;
+      let pages = [];
 
-    // Show loading indicator
-    currentBookmarksDiv.innerHTML = '<p class="loading">Loading current bookmarks...</p>';
-    pastWorksDiv.innerHTML = '<p class="loading">Loading past works...</p>';
+      // Show loading indicator
+      currentBookmarksDiv.innerHTML = '<p class="loading">Loading current bookmarks...</p>';
+      pastWorksDiv.innerHTML = '<p class="loading">Loading past works...</p>';
 
-    // Helper function to show error messages
-    function showError(message) {
-      const errorDiv = document.createElement('p');
-      errorDiv.textContent = message;
-      errorDiv.className = 'error';
-      currentBookmarksDiv.appendChild(errorDiv);
-      setTimeout(() => errorDiv.remove(), 5000);
-    }
+      // Helper function to show error messages
+      function showError(message) {
+        const errorDiv = document.createElement('p');
+        errorDiv.textContent = message;
+        errorDiv.className = 'error';
+        currentBookmarksDiv.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 5000);
+      }
 
-    // Helper function to show toast notifications
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.textContent = message;
-      toast.className = 'toast';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
+      // Helper function to show toast notifications
+      function showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
 
-    // Helper function to count words
-    function countWords(str) {
-      return str.trim().split(/\s+/).length;
-    }
+      // Helper function to count words
+      function countWords(str) {
+        return str.trim().split(/\s+/).length;
+      }
 
-    // Helper function to paginate bookmarks
-    function paginateBookmarks(bookmarks) {
-      pages = [];
-      if (!bookmarks || !Array.isArray(bookmarks)) {
+      // Helper function to paginate bookmarks
+      function paginateBookmarks(bookmarks) {
+        pages = [];
+        if (!bookmarks || !Array.isArray(bookmarks)) {
+          return pages;
+        }
+        let currentPageContent = [];
+        let wordCount = 0;
+
+        bookmarks.forEach(bookmark => {
+          const bookmarkWords = countWords(bookmark.content);
+          if (wordCount + bookmarkWords > 1000 && currentPageContent.length > 0) {
+            pages.push(currentPageContent);
+            currentPageContent = [];
+            wordCount = 0;
+          }
+          currentPageContent.push(bookmark);
+          wordCount += bookmarkWords;
+        });
+
+        if (currentPageContent.length > 0) {
+          pages.push(currentPageContent);
+        }
+
         return pages;
       }
-      let currentPageContent = [];
-      let wordCount = 0;
 
-      bookmarks.forEach(bookmark => {
-        const bookmarkWords = countWords(bookmark.content);
-        if (wordCount + bookmarkWords > 1000 && currentPageContent.length > 0) {
-          pages.push(currentPageContent);
-          currentPageContent = [];
-          wordCount = 0;
+      // Helper function to render current page
+      function renderPage(pageIndex) {
+        currentPage = pageIndex;
+        if (!pages[pageIndex] || !Array.isArray(pages[pageIndex])) {
+          currentBookmarksDiv.innerHTML = '<p>No current bookmarks yet.</p>';
+          pageInfoSpan.textContent = 'Page 1 of 1';
+          prevPageBtn.disabled = true;
+          nextPageBtn.disabled = true;
+          return;
         }
-        currentPageContent.push(bookmark);
-        wordCount += bookmarkWords;
+
+        currentBookmarksDiv.innerHTML = pages[pageIndex].length
+          ? pages[pageIndex].map(b => `
+              <div class="bookmark-item">
+                <p>${b.content}</p>
+                <p class="source">Source: <a href="${b.source}" target="_blank">${b.source}</a> (Saved: ${new Date(b.created_at).toLocaleString()})</p>
+              </div>
+            `).join('')
+          : '<p>No current bookmarks yet.</p>';
+
+        // Update pagination controls
+        pageInfoSpan.textContent = `Page ${currentPage + 1} of ${pages.length}`;
+        prevPageBtn.disabled = currentPage === 0;
+        nextPageBtn.disabled = currentPage === pages.length - 1;
+      }
+
+      // Fetch current and past bookmarks
+      function loadBookmarks() {
+        fetch('/get_bookmarks', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
+          .then(res => {
+            if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+            return res.json();
+          })
+          .then(data => {
+            console.log('Bookmarks response:', data);
+            // Paginate current bookmarks
+            pages = paginateBookmarks(data.current_bookmarks || []);
+            renderPage(0);
+
+            // Group past bookmarks by topic and subtopic
+            const pastGroups = (data.past_bookmarks || []).reduce((groups, b) => {
+              const groupKey = `${b.topic || 'Unknown'}_${b.subtopic || 'No subtopic'}_${b.research_id || b.project_id || 'unknown'}`;
+              if (!groups[groupKey]) {
+                groups[groupKey] = {
+                  topic: b.topic || 'Unknown',
+                  subtopic: b.subtopic || 'No subtopic',
+                  research_id: b.research_id,
+                  project_id: b.project_id,
+                  bookmarks: []
+                };
+              }
+              groups[groupKey].bookmarks.push(b);
+              return groups;
+            }, {});
+
+            // Render past bookmarks in sidebar
+            pastWorksDiv.innerHTML = Object.values(pastGroups).map(group => `
+              <div class="past-group" data-research-id="${group.research_id || ''}" data-project-id="${group.project_id || ''}">
+                <h4>${group.topic} - ${group.subtopic}</h4>
+                ${group.bookmarks.map(b => `
+                  <div class="bookmark-item">
+                    <p>${b.content}</p>
+                    <p class="source">Source: <a href="${b.source}" target="_blank">${b.source}</a> (Saved: ${new Date(b.created_at).toLocaleString()})</p>
+                  </div>
+                `).join('')}
+              </div>
+            `).join('') || '<p>No past bookmarks.</p>';
+
+            // Add click handlers for past groups
+            pastWorksDiv.querySelectorAll('.past-group').forEach(group => {
+              group.addEventListener('click', async () => {
+                console.log('Clicked past group:', { research_id: group.dataset.researchId, project_id: group.dataset.projectId });
+                group.style.pointerEvents = 'none';
+                group.style.opacity = '0.5';
+                const researchId = group.dataset.researchId;
+                const projectId = group.dataset.projectId;
+                try {
+                  let res;
+                  if (projectId && projectId !== '') {
+                    console.log('Loading project:', projectId);
+                    res = await fetch(`/load_project/${projectId}`, {
+                      method: 'GET',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                  } else if (researchId && researchId !== '') {
+                    console.log('Reactivating research:', researchId);
+                    res = await fetch(`/reactivate_research/${researchId}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                  } else {
+                    throw new Error('No valid research_id or project_id');
+                  }
+
+                  if (!res.ok) throw new Error(`Failed to load session: ${res.status}`);
+                  const data = await res.json();
+                  console.log('Session load response:', data);
+                  showToast('Session loaded!');
+                  loadBookmarks(); // Refresh bookmarks to reflect new current session
+                } catch (err) {
+                  console.error('Error loading session:', err);
+                  showError('Failed to load session.');
+                } finally {
+                  group.style.pointerEvents = 'auto';
+                  group.style.opacity = '1';
+                }
+              });
+            });
+          })
+          .catch(err => {
+            console.error('Error loading bookmarks:', err);
+            currentBookmarksDiv.innerHTML = '<p>No current bookmarks yet.</p>';
+            pastWorksDiv.innerHTML = '<p>No past bookmarks.</p>';
+            showError('Failed to load bookmarks.');
+          });
+      }
+
+      // Initial load
+      loadBookmarks();
+
+      // Pagination controls
+      prevPageBtn.addEventListener('click', () => {
+        if (currentPage > 0) {
+          renderPage(currentPage - 1);
+        }
       });
 
-      if (currentPageContent.length > 0) {
-        pages.push(currentPageContent);
-      }
+      nextPageBtn.addEventListener('click', () => {
+        if (currentPage < pages.length - 1) {
+          renderPage(currentPage + 1);
+        }
+      });
 
-      return pages;
-    }
+      // Back button handler
+      document.getElementById('backButton').addEventListener('click', () => {
+        window.location.href = "/dashboard";
+      });
 
-    // Helper function to render current page
-    function renderPage(pageIndex) {
-      currentPage = pageIndex;
-      if (!pages[pageIndex] || !Array.isArray(pages[pageIndex])) {
-        currentBookmarksDiv.innerHTML = '<p>No current bookmarks yet.</p>';
-        pageInfoSpan.textContent = 'Page 1 of 1';
-        prevPageBtn.disabled = true;
-        nextPageBtn.disabled = true;
-        return;
-      }
+      // Refine bookmarks (current only)
+      document.getElementById('refineBookmark').addEventListener('click', async () => {
+        const outputType = refineTypeSelect.value;
+        const currentBookmarks = pages[currentPage] || [];
+        if (!currentBookmarks.length) {
+          showError('No bookmarks to refine.');
+          return;
+        }
 
-      currentBookmarksDiv.innerHTML = pages[pageIndex].length
-        ? pages[pageIndex].map(b => `
-            <div class="bookmark-item">
-              <p>${b.content}</p>
-              <p class="source">Source: <a href="${b.source}" target="_blank">${b.source}</a> (Saved: ${new Date(b.created_at).toLocaleString()})</p>
-            </div>
-          `).join('')
-        : '<p>No current bookmarks yet.</p>';
+        const loadingDiv = document.createElement('p');
+        loadingDiv.textContent = 'Refining...';
+        loadingDiv.className = 'loading';
+        refinedContentDiv.appendChild(loadingDiv);
 
-      // Update pagination controls
-      pageInfoSpan.textContent = `Page ${currentPage + 1} of ${pages.length}`;
-      prevPageBtn.disabled = currentPage === 0;
-      nextPageBtn.disabled = currentPage === pages.length - 1;
-    }
-
-    // Fetch current and past bookmarks
-    function loadBookmarks() {
-      fetch('/get_bookmarks', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      })
-        .then(res => {
-          if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-          return res.json();
-        })
-        .then(data => {
-          console.log('Bookmarks response:', data);
-          // Paginate current bookmarks
-          pages = paginateBookmarks(data.current_bookmarks || []);
-          renderPage(0);
-
-          // Group past bookmarks by topic and subtopic
-          const pastGroups = (data.past_bookmarks || []).reduce((groups, b) => {
-            const groupKey = `${b.topic || 'Unknown'}_${b.subtopic || 'No subtopic'}_${b.research_id || b.project_id || 'unknown'}`;
-            if (!groups[groupKey]) {
-              groups[groupKey] = {
-                topic: b.topic || 'Unknown',
-                subtopic: b.subtopic || 'No subtopic',
-                research_id: b.research_id,
-                project_id: b.project_id,
-                bookmarks: []
-              };
-            }
-            groups[groupKey].bookmarks.push(b);
-            return groups;
-          }, {});
-
-          // Render past bookmarks in sidebar
-          pastWorksDiv.innerHTML = Object.values(pastGroups).map(group => `
-            <div class="past-group" data-research-id="${group.research_id || ''}" data-project-id="${group.project_id || ''}">
-              <h4>${group.topic} - ${group.subtopic}</h4>
-              ${group.bookmarks.map(b => `
-                <div class="bookmark-item">
-                  <p>${b.content}</p>
-                  <p class="source">Source: <a href="${b.source}" target="_blank">${b.source}</a> (Saved: ${new Date(b.created_at).toLocaleString()})</p>
-                </div>
-              `).join('')}
-            </div>
-          `).join('') || '<p>No past bookmarks.</p>';
-
-          // Add click handlers for past groups
-          pastWorksDiv.querySelectorAll('.past-group').forEach(group => {
-            group.addEventListener('click', async () => {
-              console.log('Clicked past group:', { research_id: group.dataset.researchId, project_id: group.dataset.projectId });
-              group.style.pointerEvents = 'none';
-              group.style.opacity = '0.5';
-              const researchId = group.dataset.researchId;
-              const projectId = group.dataset.projectId;
-              try {
-                let res;
-                if (projectId && projectId !== '') {
-                  console.log('Loading project:', projectId);
-                  res = await fetch(`/load_project/${projectId}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                  });
-                } else if (researchId && researchId !== '') {
-                  console.log('Reactivating research:', researchId);
-                  res = await fetch(`/reactivate_research/${researchId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                  });
-                } else {
-                  throw new Error('No valid research_id or project_id');
-                }
-
-                if (!res.ok) throw new Error(`Failed to load session: ${res.status}`);
-                const data = await res.json();
-                console.log('Session load response:', data);
-                showToast('Session loaded!');
-                loadBookmarks(); // Refresh bookmarks to reflect new current session
-              } catch (err) {
-                console.error('Error loading session:', err);
-                showError('Failed to load session.');
-              } finally {
-                group.style.pointerEvents = 'auto';
-                group.style.opacity = '1';
-              }
-            });
+        try {
+          const res = await fetch('/refine_bookmarks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              output_type: outputType,
+              scope: 'current',
+              bookmarks: currentBookmarks.map(b => ({
+                content: b.content,
+                source: b.source
+              }))
+            })
           });
-        })
-        .catch(err => {
-          console.error('Error loading bookmarks:', err);
-          currentBookmarksDiv.innerHTML = '<p>No current bookmarks yet.</p>';
-          pastWorksDiv.innerHTML = '<p>No past bookmarks.</p>';
-          showError('Failed to load bookmarks.');
-        });
-    }
+          loadingDiv.remove();
+          if (!res.ok) throw new Error(`Refine failed: ${res.status}`);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          refinedContentDiv.innerHTML = data.refined
+            ? `<div class="page active"><p>${data.refined.replace(/\n/g, '<br>')}</p></div>`
+            : '<p>No refined content available.</p>';
+          showToast('Bookmarks refined!');
+        } catch (err) {
+          console.error('Error refining bookmarks:', err);
+          loadingDiv.remove();
+          showError('Failed to refine bookmarks: ' + err.message);
+        }
+      });
 
-    // Initial load
-    loadBookmarks();
+      // Download PDF (refined or current bookmarks)
+      document.getElementById('downloadPdf').addEventListener('click', async () => {
+        const content = refinedContentDiv.textContent || currentBookmarksDiv.textContent;
+        if (!content.trim()) {
+          showError('No content to download.');
+          return;
+        }
 
-    // Pagination controls
-    prevPageBtn.addEventListener('click', () => {
-      if (currentPage > 0) {
-        renderPage(currentPage - 1);
-      }
+        try {
+          const res = await fetch('/download_bookmarks_pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content,
+              scope: refinedContentDiv.textContent ? 'refined' : 'current'
+            })
+          });
+          if (!res.ok) throw new Error(`PDF download failed: ${res.status}`);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          let y = 10;
+          data.content.split('\n').forEach(line => {
+            if (y > 280) {
+              doc.addPage();
+              y = 10;
+            }
+            doc.text(line.slice(0, 180), 10, y); // Truncate long lines to avoid overflow
+            y += 10;
+          });
+          doc.save('bookmarks.pdf');
+          showToast('PDF downloaded!');
+        } catch (err) {
+          console.error('Error downloading PDF:', err);
+          showError('Failed to download PDF: ' + err.message);
+        }
+      });
     });
-
-    nextPageBtn.addEventListener('click', () => {
-      if (currentPage < pages.length - 1) {
-        renderPage(currentPage + 1);
-      }
-    });
-
-    // Back button handler
-    document.getElementById('backButton').addEventListener('click', () => {
-      window.location.href = "/dashboard";
-    });
-
-    // Refine bookmarks (current only)
-    document.getElementById('refineBookmark').addEventListener('click', async () => {
-      const outputType = refineTypeSelect.value;
-      const currentBookmarks = pages[currentPage] || [];
-      if (!currentBookmarks.length) {
-        showError('No bookmarks to refine.');
-        return;
-      }
-
-      const loadingDiv = document.createElement('p');
-      loadingDiv.textContent = 'Refining...';
-      loadingDiv.className = 'loading';
-      refinedContentDiv.appendChild(loadingDiv);
-
-      try {
-        const res = await fetch('/refine_bookmarks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            output_type: outputType,
-            scope: 'current',
-            bookmarks: currentBookmarks.map(b => ({
-              content: b.content,
-              source: b.source
-            }))
-          })
-        });
-        loadingDiv.remove();
-        if (!res.ok) throw new Error(`Refine failed: ${res.status}`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        refinedContentDiv.innerHTML = data.refined
-          ? data.refined
-              .split('\n\n')
-              .map((page, index) => `<div class="page ${index === 0 ? 'active' : ''}"><h3>Page ${index + 1}</h3><p>${page.replace(/\n/g, '<br>')}</p></div>`)
-              .join('')
-          : '<p>No refined content available.</p>';
-        showToast('Bookmarks refined!');
-      } catch (err) {
-        console.error('Error refining bookmarks:', err);
-        loadingDiv.remove();
-        showError('Failed to refine bookmarks: ' + err.message);
-      }
-    });
-
-    // Download PDF (refined or current bookmarks)
-    document.getElementById('downloadPdf').addEventListener('click', async () => {
-      const content = refinedContentDiv.textContent || currentBookmarksDiv.textContent;
-      if (!content.trim()) {
-        showError('No content to download.');
-        return;
-      }
-
-      try {
-        const res = await fetch('/download_bookmarks_pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content,
-            scope: refinedContentDiv.textContent ? 'refined' : 'current'
-          })
-        });
-        if (!res.ok) throw new Error(`PDF download failed: ${res.status}`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        let y = 10;
-        data.content.split('\n').forEach(line => {
-          if (y > 280) {
-            doc.addPage();
-            y = 10;
-          }
-          doc.text(line.slice(0, 180), 10, y); // Truncate long lines to avoid overflow
-          y += 10;
-        });
-        doc.save('bookmarks.pdf');
-        showToast('PDF downloaded!');
-      } catch (err) {
-        console.error('Error downloading PDF:', err);
-        showError('Failed to download PDF: ' + err.message);
-      }
-    });
-  });
-</script>
+  </script>
 </body>
 </html>

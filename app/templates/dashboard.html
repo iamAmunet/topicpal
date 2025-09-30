@@ -15,6 +15,7 @@
       display: flex;
       min-height: 100vh;
       background-color: #f5f5f5;
+      transition: background-color 0.3s, color 0.3s;
     }
     .sidebar {
       width: 220px;
@@ -25,7 +26,6 @@
       flex-direction: column;
       padding: 1rem;
       position: fixed;
-    
     }
     .sidebar h2 {
       text-align: center;
@@ -46,7 +46,6 @@
       border: none;
       cursor: pointer;
       text-align: left;
-      
     }
     .sidebar a:hover, .sidebar button:hover {
       background-color: #444;
@@ -210,7 +209,6 @@
       opacity: 1;
     }
     .user-message {
-      
       background-color: #ffe6cc;
       padding: 1rem 2rem;
       border-radius: 6px;
@@ -238,15 +236,151 @@
       text-decoration: underline;
       cursor: pointer;
     }
+    /* Theme styles */
+    body.dark {
+      background-color: #333;
+      color: #fff;
+    }
+    body.dark .sidebar {
+      background-color: #1a1a1a;
+    }
+    body.dark .sidebar a, body.dark .sidebar button {
+      color: #ddd;
+    }
+    body.dark .sidebar a:hover, body.dark .sidebar button:hover {
+      background-color: #555;
+    }
+    body.dark .top-bar {
+      background-color: #444;
+      border-bottom-color: #666;
+    }
+    body.dark .chat-container, body.dark #tabContent {
+      background-color: #444;
+    }
+    body.dark .chat-box {
+      background-color: #555;
+    }
+    body.dark .chat-input {
+      background-color: #666;
+      color: #fff;
+      border-color: #888;
+    }
+    body.dark .user-message {
+      background-color: #664d00;
+    }
+    body.dark .bot-message {
+      background-color: #4a4a4a;
+    }
+    body.dark .tabs button {
+      background-color: #666;
+    }
+    body.dark .tabs button:hover {
+      background-color: #777;
+    }
+    body.blue {
+      background-color: #e3f2fd;
+      color: #0d47a1;
+    }
+    body.blue .sidebar {
+      background-color: #1976d2;
+    }
+    body.blue .sidebar a, body.blue .sidebar button {
+      color: #fff;
+    }
+    body.blue .sidebar a:hover, body.blue .sidebar button:hover {
+      background-color: #1565c0;
+    }
+    body.blue .top-bar {
+      background-color: #bbdefb;
+      border-bottom-color: #90caf9;
+    }
+    body.blue .chat-container, body.blue #tabContent {
+      background-color: #bbdefb;
+    }
+    body.blue .chat-box {
+      background-color: #90caf9;
+    }
+    body.blue .chat-input {
+      background-color: #fff;
+      color: #0d47a1;
+      border-color: #90caf9;
+    }
+    body.blue .user-message {
+      background-color: #b3e5fc;
+    }
+    body.blue .bot-message {
+      background-color: #e1f5fe;
+    }
+    body.blue .tabs button {
+      background-color: #90caf9;
+    }
+    body.blue .tabs button:hover {
+      background-color: #64b5f6;
+    }
+    /* Form view styles */
+    .research-form {
+      flex: 1;
+      padding: 2rem;
+      display: none;
+      flex-direction: column;
+    }
+    .form-container {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background-color: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .form-container h2 {
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+    }
+    .form-container input, .form-container select {
+      padding: 0.5rem 0.8rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .form-container button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: #ff6600;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .form-container button:hover {
+      background-color: #e65c00;
+    }
+    body.dark .form-container {
+      background-color: #444;
+    }
+    body.dark .form-container input, body.dark .form-container select {
+      background-color: #666;
+      color: #fff;
+      border-color: #888;
+    }
+    body.blue .form-container {
+      background-color: #bbdefb;
+    }
+    body.blue .form-container input, body.blue .form-container select {
+      background-color: #fff;
+      color: #0d47a1;
+      border-color: #90caf9;
+    }
   </style>
 </head>
-<body>
+<body class="{{ theme_color }}">
   <div class="sidebar">
     <h2>TopicPal</h2>
     <a href="{{ url_for('main.dashboard') }}" id="researchLink">Research</a>
     <a href="{{ url_for('main.new_research') }}" id="newResearch">New Research</a>
     <a href="{{ url_for('main.bookmark') }}">Bookmark Work</a>
-    <a href="#">Settings</a>
+    <a href="{{ url_for('main.setting') }}">Settings</a>
     <a href="{{ url_for('main.logout') }}" id="logoutLink">Logout</a>
     <h3>Project History</h3>
     <div class="project-list">
@@ -277,6 +411,19 @@
       </div>
     </main>
 
+    <main class="research-form">
+      <div class="form-container">
+        <h2>Research Topic Form</h2>
+        <form id="researchForm">
+          <input type="text" id="topicInput" placeholder="Enter research topic..." required>
+          <select id="subtopicSelect" disabled>
+            <option value="">Select a subtopic</option>
+          </select>
+          <button type="submit">Start Research</button>
+        </form>
+      </div>
+    </main>
+
     <div class="step" id="step3">
       <h2>Research Workspace</h2>
       <p>Your topic: <span id="chosenTopic"></span></p>
@@ -299,518 +446,649 @@
 
   <script>
    document.addEventListener('DOMContentLoaded', () => {
-  // DOM element references
-  const chatForm = document.getElementById('chatForm');
-  const chatBox = document.getElementById('chatBox');
-  const step3Section = document.getElementById('step3');
-  const chosenTopic = document.getElementById('chosenTopic');
-  const chosenSubtopic = document.getElementById('chosenSubtopic');
-  const tabContent = document.getElementById('tabContent');
-  const overview = document.getElementById('overview');
-  const tabs = document.querySelectorAll('.tabs button');
-  const researchLink = document.getElementById('researchLink');
-  const newResearchLink = document.getElementById('newResearch');
-  const logoutLink = document.getElementById('logoutLink');
-  const chatSection = document.querySelector('.research-chat');
-  const backButton = document.getElementById('backButton');
-  const saveProjectButton = document.getElementById('saveProjectButton');
+    // DOM element references
+    const chatForm = document.getElementById('chatForm');
+    const chatBox = document.getElementById('chatBox');
+    const step3Section = document.getElementById('step3');
+    const chosenTopic = document.getElementById('chosenTopic');
+    const chosenSubtopic = document.getElementById('chosenSubtopic');
+    const tabContent = document.getElementById('tabContent');
+    const overview = document.getElementById('overview');
+    const tabs = document.querySelectorAll('.tabs button');
+    const researchLink = document.getElementById('researchLink');
+    const newResearchLink = document.getElementById('newResearch');
+    const logoutLink = document.getElementById('logoutLink');
+    const chatSection = document.querySelector('.research-chat');
+    const backButton = document.getElementById('backButton');
+    const saveProjectButton = document.getElementById('saveProjectButton');
+    const researchForm = document.getElementById('researchForm');
+    const topicInput = document.getElementById('topicInput');
+    const subtopicSelect = document.getElementById('subtopicSelect');
+    const formSection = document.querySelector('.research-form');
 
-  // Helper function to show error messages in chat
-  function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.textContent = message;
-    errorDiv.className = 'error bot-message';
-    chatBox.appendChild(errorDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    setTimeout(() => errorDiv.remove(), 5000);
-  }
-
-  // Helper function to show toast notifications
-  function showToast(message) {
-    const toast = document.createElement('div');
-    toast.textContent = message;
-    toast.className = 'toast';
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-  }
-
-  // Switch to tabs section
-  function switchToTabs() {
-    chatSection.style.display = 'none';
-    step3Section.style.display = 'flex';
-  }
-
-  // Back to chat section
-  function backToChat() {
-    step3Section.style.display = 'none';
-    chatSection.style.display = 'flex';
-  }
-
-  // Add view scraped data link to chat
-  function addViewLink(subtopic) {
-    const botMsg = document.createElement('div');
-    botMsg.className = 'bot-message';
-    botMsg.innerHTML = `Data gathered for "${subtopic}". <a href="#" class="view-scraped-data">View scraped data</a>`;
-    chatBox.appendChild(botMsg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    botMsg.querySelector('.view-scraped-data').addEventListener('click', (ev) => {
-      ev.preventDefault();
-      switchToTabs();
-      const activeTab = sessionStorage.getItem('activeTab') || 'overview';
-      showTab(activeTab);
-    });
-  }
-
-  // Attach event listeners to subtopic links
-  function attachSubtopicListeners(botMsg, subtopics) {
-    botMsg.querySelectorAll('.choose-subtopic').forEach(link => {
-      link.addEventListener('click', async function (ev) {
-        ev.preventDefault();
-        link.style.pointerEvents = 'none';
-        link.style.opacity = '0.5';
-
-        const selectedSubtopic = subtopics[link.dataset.index];
-        const selectedMsg = document.createElement('div');
-        selectedMsg.textContent = `Selected subtopic: ${selectedSubtopic}`;
-        selectedMsg.className = 'bot-message';
-        chatBox.appendChild(selectedMsg);
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        const subLoadingMsg = document.createElement('div');
-        subLoadingMsg.textContent = 'Fetching research data...';
-        subLoadingMsg.className = 'loading bot-message';
-        chatBox.appendChild(subLoadingMsg);
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        try {
-          const subtopicsData = JSON.parse(sessionStorage.getItem('subtopics_data') || '{}');
-          const searchTerms = subtopicsData.search_terms?.[selectedSubtopic] || [];
-          if (!searchTerms.length) {
-            throw new Error('No search terms found for selected subtopic');
-          }
-
-          const rememberRes = await fetch('/remember_subtopic', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subtopic: selectedSubtopic, search_terms: searchTerms })
-          });
-          if (!rememberRes.ok) throw new Error(`remember_subtopic failed: ${rememberRes.status}`);
-
-          const payload = { subtopic: selectedSubtopic, search_terms: searchTerms };
-          const resScraper = await fetch('/run_scraper', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          subLoadingMsg.remove();
-
-          if (!resScraper.ok) throw new Error(`Scraper failed: ${resScraper.status}`);
-          const dataScraper = await resScraper.json();
-
-          if (dataScraper.results) {
-            addViewLink(selectedSubtopic);
-            sessionStorage.setItem('scraper_results', JSON.stringify(dataScraper.results));
-            chosenTopic.textContent = sessionStorage.getItem('current_topic') || '';
-            chosenSubtopic.textContent = selectedSubtopic;
-          } else {
-            showError('No research results found.');
-          }
-        } catch (err) {
-          console.error('Error processing subtopic:', err);
-          showError('Error processing subtopic.');
-          subLoadingMsg.remove();
-        } finally {
-          link.style.pointerEvents = 'auto';
-          link.style.opacity = '1';
-        }
-      });
-    });
-  }
-
-  // Load session data and restore UI state
-  async function loadSessionData() {
-    try {
-      const res = await fetch('/get_session_data', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (!res.ok) throw new Error(`Session fetch failed: ${res.status}`);
-      const sessionData = await res.json();
-      console.log('Backend session data:', sessionData);
-
-      sessionStorage.setItem('current_topic', sessionData.current_topic || '');
-      sessionStorage.setItem('chosen_subtopic', JSON.stringify(sessionData.chosen_subtopic || {}));
-
+    // Apply default view
+    const defaultView = "{{ default_view }}";
+    if (defaultView === 'chat') {
       chatSection.style.display = 'flex';
+      formSection.style.display = 'none';
+    } else {
+      chatSection.style.display = 'none';
+      formSection.style.display = 'flex';
+    }
+
+    // Helper function to show error messages in chat
+    function showError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.textContent = message;
+      errorDiv.className = 'error bot-message';
+      chatBox.appendChild(errorDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      setTimeout(() => errorDiv.remove(), 5000);
+    }
+
+    // Helper function to show toast notifications
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.textContent = message;
+      toast.className = 'toast';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Switch to tabs section
+    function switchToTabs() {
+      chatSection.style.display = 'none';
+      formSection.style.display = 'none';
+      step3Section.style.display = 'flex';
+    }
+
+    // Back to default view
+    function backToDefaultView() {
       step3Section.style.display = 'none';
+      if (defaultView === 'chat') {
+        chatSection.style.display = 'flex';
+        formSection.style.display = 'none';
+      } else {
+        chatSection.style.display = 'none';
+        formSection.style.display = 'flex';
+      }
+    }
 
-      chatBox.innerHTML = ''; // Clear chatBox to prevent duplicates
+    // Add view scraped data link to chat
+    function addViewLink(subtopic) {
+      const botMsg = document.createElement('div');
+      botMsg.className = 'bot-message';
+      botMsg.innerHTML = `Data gathered for "${subtopic}". <a href="#" class="view-scraped-data">View scraped data</a>`;
+      chatBox.appendChild(botMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
 
-      // Always fetch aggregated session data from /get_latest_research
-      const resLatest = await fetch('/get_latest_research', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+      botMsg.querySelector('.view-scraped-data').addEventListener('click', (ev) => {
+        ev.preventDefault();
+        switchToTabs();
+        const activeTab = sessionStorage.getItem('activeTab') || 'overview';
+        showTab(activeTab);
       });
-      let research;
-      if (resLatest.ok) {
-        research = await resLatest.json();
-        console.log('Latest research data:', research);
-        if (research && research.id) {
-          sessionStorage.setItem('chosen_subtopic', JSON.stringify({
-            research_id: research.id,
-            subtopic: research.subtopic || ''
-          }));
-          sessionStorage.setItem('current_topic', research.topic || '');
-          sessionStorage.setItem('scraper_results', JSON.stringify(research.scraper_results || {}));
+    }
+
+    // Attach event listeners to subtopic links
+    function attachSubtopicListeners(botMsg, subtopics) {
+      botMsg.querySelectorAll('.choose-subtopic').forEach(link => {
+        link.addEventListener('click', async function (ev) {
+          ev.preventDefault();
+          link.style.pointerEvents = 'none';
+          link.style.opacity = '0.5';
+
+          const selectedSubtopic = subtopics[link.dataset.index];
+          const selectedMsg = document.createElement('div');
+          selectedMsg.textContent = `Selected subtopic: ${selectedSubtopic}`;
+          selectedMsg.className = 'bot-message';
+          chatBox.appendChild(selectedMsg);
+          chatBox.scrollTop = chatBox.scrollHeight;
+
+          const subLoadingMsg = document.createElement('div');
+          subLoadingMsg.textContent = 'Fetching research data...';
+          subLoadingMsg.className = 'loading bot-message';
+          chatBox.appendChild(subLoadingMsg);
+          chatBox.scrollTop = chatBox.scrollHeight;
+
+          try {
+            const subtopicsData = JSON.parse(sessionStorage.getItem('subtopics_data') || '{}');
+            const searchTerms = subtopicsData.search_terms?.[selectedSubtopic] || [];
+            if (!searchTerms.length) {
+              throw new Error('No search terms found for selected subtopic');
+            }
+
+            const rememberRes = await fetch('/remember_subtopic', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subtopic: selectedSubtopic, search_terms: searchTerms })
+            });
+            if (!rememberRes.ok) throw new Error(`remember_subtopic failed: ${rememberRes.status}`);
+
+            const payload = { subtopic: selectedSubtopic, search_terms: searchTerms };
+            const resScraper = await fetch('/run_scraper', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            subLoadingMsg.remove();
+
+            if (!resScraper.ok) throw new Error(`Scraper failed: ${resScraper.status}`);
+            const dataScraper = await resScraper.json();
+
+            if (dataScraper.results) {
+              addViewLink(selectedSubtopic);
+              sessionStorage.setItem('scraper_results', JSON.stringify(dataScraper.results));
+              chosenTopic.textContent = sessionStorage.getItem('current_topic') || '';
+              chosenSubtopic.textContent = selectedSubtopic;
+            } 
+            if(dataScraper.Status){
+              showError('Scraping limit reached, upgrade')
+            }else {
+              showError('No research results found.');
+            }
+          } catch (err) {
+            console.error('Error processing subtopic:', err);
+            showError('Error processing subtopic.');
+            subLoadingMsg.remove();
+          } finally {
+            link.style.pointerEvents = 'auto';
+            link.style.opacity = '1';
+          }
+        });
+      });
+    }
+
+    // Load session data and restore UI state
+    async function loadSessionData() {
+      try {
+        const res = await fetch('/get_session_data', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) throw new Error(`Session fetch failed: ${res.status}`);
+        const sessionData = await res.json();
+        console.log('Backend session data:', sessionData);
+
+        sessionStorage.setItem('current_topic', sessionData.current_topic || '');
+        sessionStorage.setItem('chosen_subtopic', JSON.stringify(sessionData.chosen_subtopic || {}));
+
+        chatBox.innerHTML = ''; // Clear chatBox to prevent duplicates
+
+        // Always fetch aggregated session data from /get_latest_research
+        const resLatest = await fetch('/get_latest_research', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        let research;
+        if (resLatest.ok) {
+          research = await resLatest.json();
+          console.log('Latest research data:', research);
+          if (research && research.id) {
+            sessionStorage.setItem('chosen_subtopic', JSON.stringify({
+              research_id: research.id,
+              subtopic: research.subtopic || ''
+            }));
+            sessionStorage.setItem('current_topic', research.topic || '');
+            sessionStorage.setItem('scraper_results', JSON.stringify(research.scraper_results || {}));
+          } else {
+            console.log('No research found for session, showing empty chat');
+            backToDefaultView();
+            return;
+          }
         } else {
-          console.log('No research found for session, showing empty chat');
+          console.error('Latest research fetch failed:', resLatest.status);
+          backToDefaultView();
           return;
         }
-      } else {
-        console.error('Latest research fetch failed:', resLatest.status);
-        return;
-      }
 
-      if (research && research.chat_history && research.chat_history.length) {
-        research.chat_history.forEach((msg, index) => {
-          console.log(`Rendering chat message ${index}:`, msg);
-          const msgDiv = document.createElement('div');
-          if (msg.content.startsWith('Here are some subtopics:')) {
-            const subtopics = msg.content.replace('Here are some subtopics: ', '').split(', ');
-            msgDiv.className = 'bot-message';
-            msgDiv.innerHTML = `<strong>Here are some subtopics:</strong> ${subtopics.map((s, i) =>
-              `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`).join(', ')}`;
-            chatBox.appendChild(msgDiv);
-            attachSubtopicListeners(msgDiv, subtopics);
-          } else {
-            msgDiv.innerHTML = msg.content.includes('View scraped data') ?
-              `${msg.content.split('View scraped data')[0]}<a href="#" class="view-scraped-data">View scraped data</a>` :
-              msg.content;
-            msgDiv.className = msg.role === 'user' ? 'user-message' : 'bot-message';
-            chatBox.appendChild(msgDiv);
-
-            if (msg.content.includes('View scraped data')) {
-              msgDiv.querySelector('.view-scraped-data').addEventListener('click', (ev) => {
-                ev.preventDefault();
-                switchToTabs();
-                const activeTab = sessionStorage.getItem('activeTab') || 'overview';
-                showTab(activeTab);
-              });
-            }
-          }
-        });
-        chatBox.scrollTop = chatBox.scrollHeight;
-      }
-
-      if (research && research.scraper_results && Object.keys(research.scraper_results).length > 0) {
-        const lastMsg = chatBox.lastChild;
-        if (!lastMsg || !lastMsg.innerHTML.includes('view-scraped-data')) {
-          addViewLink(research.subtopic);
-        }
-        // Update tab content if already in tab section
-        if (step3Section.style.display === 'flex') {
-          chosenTopic.textContent = research.topic || '';
-          chosenSubtopic.textContent = research.subtopic || '';
-          const activeTab = sessionStorage.getItem('activeTab') || 'overview';
-          showTab(activeTab);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading session data:', err);
-      showError('Failed to load research data.');
-      chatSection.style.display = 'flex';
-      step3Section.style.display = 'none';
-    }
-  }
-
-  // Initial load
-  loadSessionData();
-
-  // Chat form submission
-  chatForm.addEventListener('submit', async function (ev) {
-    ev.preventDefault();
-    const topic = chatInput.value.trim();
-    if (!topic) return;
-
-    const userMsg = document.createElement('div');
-    userMsg.textContent = topic;
-    userMsg.className = 'user-message';
-    chatBox.appendChild(userMsg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    const loadingMsg = document.createElement('div');
-    loadingMsg.textContent = 'Generating subtopics...';
-    loadingMsg.className = 'loading bot-message';
-    chatBox.appendChild(loadingMsg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    try {
-      const resSub = await fetch('/get_subtopics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic })
-      });
-      if (!resSub.ok) throw new Error(`Subtopics fetch failed: ${resSub.status}`);
-      const dataSub = await resSub.json();
-      console.log('Subtopics response:', dataSub);
-
-      sessionStorage.setItem('subtopics_data', JSON.stringify(dataSub));
-      sessionStorage.setItem('chosen_subtopic', JSON.stringify({
-        research_id: dataSub.research_id,
-        subtopic: ''
-      }));
-      sessionStorage.setItem('current_topic', topic);
-
-      loadingMsg.remove();
-
-      if (dataSub.subtopics) {
-        const botMsg = document.createElement('div');
-        botMsg.className = 'bot-message';
-        botMsg.innerHTML = `<strong>Here are some subtopics:</strong> ${dataSub.subtopics
-          .map((s, i) => `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`)
-          .join(', ')}`;
-        chatBox.appendChild(botMsg);
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        // Attach event listeners to new subtopic links
-        attachSubtopicListeners(botMsg, dataSub.subtopics);
-      } else {
-        showError('No subtopics generated.');
-      }
-    } catch (err) {
-      console.error('Error fetching subtopics:', err);
-      showError('Error generating subtopics.');
-      loadingMsg.remove();
-    }
-  });
-
-  // Tab switching with loading feedback
-  function showTab(tabName) {
-    tabs.forEach(btn => {
-      btn.classList.remove('active');
-      btn.disabled = false;
-    });
-    const activeBtn = document.querySelector(`.tabs button[data-tab="${tabName}"]`);
-    if (activeBtn) {
-      activeBtn.classList.add('active');
-      activeBtn.disabled = true;
-    }
-
-    tabContent.innerHTML = '<div class="loading">Loading data...</div>';
-    sessionStorage.setItem('activeTab', tabName);
-
-    const chosenSubtopic = JSON.parse(sessionStorage.getItem('chosen_subtopic') || '{}');
-    const researchId = chosenSubtopic.research_id;
-
-    function loadTabContent() {
-      const url = researchId ? `/tab_content/${tabName}?research_id=${researchId}` : `/tab_content/${tabName}`;
-      fetch(url)
-        .then(res => {
-          if (!res.ok) {
-            return res.text().then(text => {
-              throw new Error(`Tab content fetch failed: ${res.status} ${text.slice(0, 50)}`);
-            });
-          }
-          return res.json();
-        })
-        .then(data => {
-          tabContent.innerHTML = '';
-          if (data.content === 'Scraping in progress, please wait...') {
-            const contentDiv = document.createElement('div');
-            contentDiv.textContent = data.content;
-            tabContent.appendChild(contentDiv);
-            setTimeout(loadTabContent, 5000);
-          } else {
-            if (tabName === 'overview') {
-              overview.innerHTML = data.content;
-              tabContent.appendChild(overview);
+        if (research && research.chat_history && research.chat_history.length) {
+          research.chat_history.forEach((msg, index) => {
+            console.log(`Rendering chat message ${index}:`, msg);
+            const msgDiv = document.createElement('div');
+            if (msg.content.startsWith('Here are some subtopics:')) {
+              const subtopics = msg.content.replace('Here are some subtopics: ', '').split(', ');
+              msgDiv.className = 'bot-message';
+              msgDiv.innerHTML = `<strong>Here are some subtopics:</strong> ${subtopics.map((s, i) =>
+                `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`).join(', ')}`;
+              chatBox.appendChild(msgDiv);
+              attachSubtopicListeners(msgDiv, subtopics);
             } else {
-              const contentDiv = document.createElement('div');
-              contentDiv.innerHTML = data.content;
-              tabContent.appendChild(contentDiv);
+              msgDiv.innerHTML = msg.content.includes('View scraped data') ?
+                `${msg.content.split('View scraped data')[0]}<a href="#" class="view-scraped-data">View scraped data</a>` :
+                msg.content;
+              msgDiv.className = msg.role === 'user' ? 'user-message' : 'bot-message';
+              chatBox.appendChild(msgDiv);
+
+              if (msg.content.includes('View scraped data')) {
+                msgDiv.querySelector('.view-scraped-data').addEventListener('click', (ev) => {
+                  ev.preventDefault();
+                  switchToTabs();
+                  const activeTab = sessionStorage.getItem('activeTab') || 'overview';
+                  showTab(activeTab);
+                });
+              }
             }
+          });
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        if (research && research.scraper_results && Object.keys(research.scraper_results).length > 0) {
+          const lastMsg = chatBox.lastChild;
+          if (!lastMsg || !lastMsg.innerHTML.includes('view-scraped-data')) {
+            addViewLink(research.subtopic);
           }
-        })
-        .catch(err => {
-          console.error('Error loading tab:', err);
-          tabContent.innerHTML = `<div class="error">Error loading ${tabName}</div>`;
-        })
-        .finally(() => {
-          if (activeBtn) activeBtn.disabled = false;
-        });
-    }
-    loadTabContent();
-  }
-
-  // Back button handler
-  if (backButton) {
-    backButton.addEventListener('click', backToChat);
-  }
-
-  // Tab click handlers
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => showTab(tab.dataset.tab));
-  });
-
-  // Bookmark feature with toast feedback
-  tabContent.addEventListener('mouseup', (e) => {
-    const selection = window.getSelection();
-    const text = selection.toString().trim();
-    if (!text) return; // Exit if no text selected
-
-    const existingBtn = document.querySelector('.bookmark-btn');
-    if (existingBtn) existingBtn.remove();
-
-    const bookmarkBtn = document.createElement('button');
-    bookmarkBtn.textContent = 'Bookmark';
-    bookmarkBtn.className = 'bookmark-btn';
-    bookmarkBtn.style.position = 'absolute';
-    bookmarkBtn.style.left = `${e.pageX}px`;
-    bookmarkBtn.style.top = `${e.pageY}px`;
-    bookmarkBtn.style.background = '#ff6600';
-    bookmarkBtn.style.border = '1px solid #ccc';
-    bookmarkBtn.style.padding = '15px';
-    bookmarkBtn.style.zIndex = '1000';
-    bookmarkBtn.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-    bookmarkBtn.onclick = async () => {
-      const chosenSubtopic = JSON.parse(sessionStorage.getItem('chosen_subtopic') || '{}');
-      const researchId = chosenSubtopic.research_id;
-      if (!researchId) {
-        console.error('No research_id found in sessionStorage.chosen_subtopic:', chosenSubtopic);
-        showError('No active research session. Please start a new topic.');
-        bookmarkBtn.remove();
-        return;
+          // Update tab content if already in tab section
+          if (step3Section.style.display === 'flex') {
+            chosenTopic.textContent = research.topic || '';
+            chosenSubtopic.textContent = research.subtopic || '';
+            const activeTab = sessionStorage.getItem('activeTab') || 'overview';
+            showTab(activeTab);
+          } else {
+            backToDefaultView();
+          }
+        } else {
+          backToDefaultView();
+        }
+      } catch (err) {
+        console.error('Error loading session data:', err);
+        showError('Failed to load research data.');
+        backToDefaultView();
       }
+    }
 
-      const payload = { text, research_id: researchId };
-      console.log('Sending to /bookmark:', payload);
+    // Initial load
+    loadSessionData();
+
+    // Chat form submission
+    chatForm.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      const topic = chatInput.value.trim();
+      if (!topic) return;
+
+      const userMsg = document.createElement('div');
+      userMsg.textContent = topic;
+      userMsg.className = 'user-message';
+      chatBox.appendChild(userMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      const loadingMsg = document.createElement('div');
+      loadingMsg.textContent = 'Generating subtopics...';
+      loadingMsg.className = 'loading bot-message';
+      chatBox.appendChild(loadingMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
 
       try {
-        const response = await fetch('/bookmark', {
+        const resSub = await fetch('/get_subtopics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic })
+        });
+        if (!resSub.ok) throw new Error(`Subtopics fetch failed: ${resSub.status}`);
+        const dataSub = await resSub.json();
+        console.log('Subtopics response:', dataSub);
+
+        sessionStorage.setItem('subtopics_data', JSON.stringify(dataSub));
+        sessionStorage.setItem('chosen_subtopic', JSON.stringify({
+          research_id: dataSub.research_id,
+          subtopic: ''
+        }));
+        sessionStorage.setItem('current_topic', topic);
+
+        loadingMsg.remove();
+
+        if (dataSub.subtopics) {
+          const botMsg = document.createElement('div');
+          botMsg.className = 'bot-message';
+          botMsg.innerHTML = `<strong>Here are some subtopics:</strong> ${dataSub.subtopics
+            .map((s, i) => `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`)
+            .join(', ')}`;
+          chatBox.appendChild(botMsg);
+          chatBox.scrollTop = chatBox.scrollHeight;
+
+          // Attach event listeners to new subtopic links
+          attachSubtopicListeners(botMsg, dataSub.subtopics);
+        } else {
+          showError('No subtopics generated.');
+        }
+      } catch (err) {
+        console.error('Error fetching subtopics:', err);
+        showError('Error generating subtopics.');
+        loadingMsg.remove();
+      }
+    });
+
+    // Form submission
+    researchForm.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      const topic = topicInput.value.trim();
+      const subtopic = subtopicSelect.value;
+      if (!topic) return;
+
+      const loadingMsg = document.createElement('div');
+      loadingMsg.textContent = 'Generating subtopics...';
+      loadingMsg.className = 'loading bot-message';
+      chatBox.appendChild(loadingMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      try {
+        const resSub = await fetch('/get_subtopics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic })
+        });
+        if (!resSub.ok) throw new Error(`Subtopics fetch failed: ${resSub.status}`);
+        const dataSub = await resSub.json();
+        console.log('Subtopics response:', dataSub);
+
+        sessionStorage.setItem('subtopics_data', JSON.stringify(dataSub));
+        sessionStorage.setItem('chosen_subtopic', JSON.stringify({
+          research_id: dataSub.research_id,
+          subtopic: ''
+        }));
+        sessionStorage.setItem('current_topic', topic);
+
+        loadingMsg.remove();
+
+        if (dataSub.subtopics) {
+          subtopicSelect.innerHTML = '<option value="">Select a subtopic</option>';
+          dataSub.subtopics.forEach(sub => {
+            const option = document.createElement('option');
+            option.value = sub;
+            option.textContent = sub;
+            subtopicSelect.appendChild(option);
+          });
+          subtopicSelect.disabled = false;
+        } else {
+          showError('No subtopics generated.');
+        }
+      } catch (err) {
+        console.error('Error fetching subtopics:', err);
+        showError('Error generating subtopics.');
+        loadingMsg.remove();
+      }
+    });
+
+    // Subtopic selection
+    subtopicSelect.addEventListener('change', async function () {
+      const selectedSubtopic = subtopicSelect.value;
+      if (!selectedSubtopic) return;
+
+      const loadingMsg = document.createElement('div');
+      loadingMsg.textContent = 'Fetching research data...';
+      loadingMsg.className = 'loading bot-message';
+      chatBox.appendChild(loadingMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      try {
+        const subtopicsData = JSON.parse(sessionStorage.getItem('subtopics_data') || '{}');
+        const searchTerms = subtopicsData.search_terms?.[selectedSubtopic] || [];
+        if (!searchTerms.length) {
+          throw new Error('No search terms found for selected subtopic');
+        }
+
+        const rememberRes = await fetch('/remember_subtopic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subtopic: selectedSubtopic, search_terms: searchTerms })
+        });
+        if (!rememberRes.ok) throw new Error(`remember_subtopic failed: ${rememberRes.status}`);
+
+        const payload = { subtopic: selectedSubtopic, search_terms: searchTerms };
+        const resScraper = await fetch('/run_scraper', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || `Bookmark failed: ${response.status}`);
-        console.log('Bookmarked:', data);
-        showToast('Text bookmarked!');
-      } catch (err) {
-        console.error('Bookmark error:', err);
-        showError(`Failed to bookmark text: ${err.message}`);
-      } finally {
-        bookmarkBtn.remove();
-      }
-    };
-    document.body.appendChild(bookmarkBtn);
-  });
+        loadingMsg.remove();
 
-  // Prevent default context menu only when text is selected
-  document.addEventListener('contextmenu', (e) => {
-    const selection = window.getSelection();
-    const target = e.target.closest('#tabContent, #chatBox');
-    if (selection.toString().trim() && target) {
-      e.preventDefault(); // Suppress browser context menu only for valid selections
-    }
-  });
+        if (!resScraper.ok) throw new Error(`Scraper failed: ${resScraper.status}`);
+        const dataScraper = await resScraper.json();
 
-  // Remove bookmark button on click elsewhere
-  document.addEventListener('click', (e) => {
-    const bookmarkBtn = document.querySelector('.bookmark-btn');
-    if (bookmarkBtn && !bookmarkBtn.contains(e.target)) {
-      bookmarkBtn.remove();
-    }
-  });
-
-  // Save project handler
-  if (saveProjectButton) {
-    saveProjectButton.addEventListener('click', async () => {
-      try {
-        const res = await fetch('/save_research', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.error(`Save failed: ${data.error}`);
-          showError(`Failed to save project: ${data.error}`);
-          return;
+        if (dataScraper.results) {
+          addViewLink(selectedSubtopic);
+          sessionStorage.setItem('scraper_results', JSON.stringify(dataScraper.results));
+          chosenTopic.textContent = sessionStorage.getItem('current_topic') || '';
+          chosenSubtopic.textContent = selectedSubtopic;
+        } 
+        if (dataScraper.Status) {
+          showError('Scraping limit reached, upgrade');
+        } else {
+          showError('No research results found.');
         }
-        showToast('Project saved!');
-        window.location.reload();
       } catch (err) {
-        console.error('Error saving project:', err);
-        showError('Failed to save project.');
+        console.error('Error processing subtopic:', err);
+        showError('Error processing subtopic.');
+        loadingMsg.remove();
       }
     });
-  }
 
-  // Load project handler
-  document.querySelectorAll('.project-load').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const projectId = btn.dataset.projectId;
-      try {
-        const res = await fetch(`/load_project/${projectId}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (!res.ok) throw new Error(`Load project failed: ${res.status}`);
-        const data = await res.json();
-        console.log('Loaded project:', data);
-        chatBox.innerHTML = '';
-        data.chat_history.forEach(msg => {
-          const msgDiv = document.createElement('div');
-          if (msg.content.startsWith('Here are some subtopics:')) {
-            const subtopics = msg.content.replace('Here are some subtopics: ', '').split(', ');
-            msgDiv.className = 'bot-message';
-            msgDiv.innerHTML = `<strong>Here are some subtopics:</strong> ${subtopics.map((s, i) =>
-              `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`).join(', ')}`;
-            chatBox.appendChild(msgDiv);
-            attachSubtopicListeners(msgDiv, subtopics);
-          } else {
-            msgDiv.innerHTML = msg.content.includes('View scraped data') ?
-              `${msg.content.split('View scraped data')[0]}<a href="#" class="view-scraped-data">View scraped data</a>` :
-              msg.content;
-            msgDiv.className = msg.role === 'user' ? 'user-message' : 'bot-message';
-            chatBox.appendChild(msgDiv);
-            if (msg.content.includes('View scraped data')) {
-              msgDiv.querySelector('.view-scraped-data').addEventListener('click', (ev) => {
-                ev.preventDefault();
-                switchToTabs();
-                const activeTab = sessionStorage.getItem('activeTab') || 'overview';
-                showTab(activeTab);
+    // Tab switching with loading feedback
+    function showTab(tabName) {
+      tabs.forEach(btn => {
+        btn.classList.remove('active');
+        btn.disabled = false;
+      });
+      const activeBtn = document.querySelector(`.tabs button[data-tab="${tabName}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.disabled = true;
+      }
+
+      tabContent.innerHTML = '<div class="loading">Loading data...</div>';
+      sessionStorage.setItem('activeTab', tabName);
+
+      const chosenSubtopic = JSON.parse(sessionStorage.getItem('chosen_subtopic') || '{}');
+      const researchId = chosenSubtopic.research_id;
+
+      function loadTabContent() {
+        const url = researchId ? `/tab_content/${tabName}?research_id=${researchId}` : `/tab_content/${tabName}`;
+        fetch(url)
+          .then(res => {
+            if (!res.ok) {
+              return res.text().then(text => {
+                throw new Error(`Tab content fetch failed: ${res.status} ${text.slice(0, 50)}`);
               });
             }
-          }
-        });
-        chatBox.scrollTop = chatBox.scrollHeight;
-        chosenTopic.textContent = data.topic || '';
-        chosenSubtopic.textContent = data.subtopic || '';
-        sessionStorage.setItem('scraper_results', JSON.stringify(data.scraper_results || {}));
-        sessionStorage.setItem('chosen_subtopic', JSON.stringify({
-          research_id: data.research_id,
-          subtopic: data.subtopic || ''
-        }));
-        chatSection.style.display = 'flex';
-        step3Section.style.display = 'none';
-        const lastMsg = chatBox.lastChild;
-        if (data.scraper_results && (!lastMsg || !lastMsg.innerHTML.includes('view-scraped-data'))) {
-          addViewLink(data.subtopic);
+            return res.json();
+          })
+          .then(data => {
+            tabContent.innerHTML = '';
+            if (data.content === 'Scraping in progress, please wait...') {
+              const contentDiv = document.createElement('div');
+              contentDiv.textContent = data.content;
+              tabContent.appendChild(contentDiv);
+              setTimeout(loadTabContent, 5000);
+            } else {
+              if (tabName === 'overview') {
+                overview.innerHTML = data.content;
+                tabContent.appendChild(overview);
+              } else {
+                const contentDiv = document.createElement('div');
+                contentDiv.innerHTML = data.content;
+                tabContent.appendChild(contentDiv);
+              }
+            }
+          })
+          .catch(err => {
+            console.error('Error loading tab:', err);
+            tabContent.innerHTML = `<div class="error">Error loading ${tabName}</div>`;
+          })
+          .finally(() => {
+            if (activeBtn) activeBtn.disabled = false;
+          });
+      }
+      loadTabContent();
+    }
+
+    // Back button handler
+    if (backButton) {
+      backButton.addEventListener('click', backToDefaultView);
+    }
+
+    // Tab click handlers
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => showTab(tab.dataset.tab));
+    });
+
+    // Bookmark feature with toast feedback
+    tabContent.addEventListener('mouseup', (e) => {
+      const selection = window.getSelection();
+      const text = selection.toString().trim();
+      if (!text) return; // Exit if no text selected
+
+      const existingBtn = document.querySelector('.bookmark-btn');
+      if (existingBtn) existingBtn.remove();
+
+      const bookmarkBtn = document.createElement('button');
+      bookmarkBtn.textContent = 'Bookmark';
+      bookmarkBtn.className = 'bookmark-btn';
+      bookmarkBtn.style.position = 'absolute';
+      bookmarkBtn.style.left = `${e.pageX}px`;
+      bookmarkBtn.style.top = `${e.pageY}px`;
+      bookmarkBtn.style.background = '#ff6600';
+      bookmarkBtn.style.border = '1px solid #ccc';
+      bookmarkBtn.style.padding = '15px';
+      bookmarkBtn.style.zIndex = '1000';
+      bookmarkBtn.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+      bookmarkBtn.onclick = async () => {
+        const chosenSubtopic = JSON.parse(sessionStorage.getItem('chosen_subtopic') || '{}');
+        const researchId = chosenSubtopic.research_id;
+        if (!researchId) {
+          console.error('No research_id found in sessionStorage.chosen_subtopic:', chosenSubtopic);
+          showError('No active research session. Please start a new topic.');
+          bookmarkBtn.remove();
+          return;
         }
-        showToast('Project loaded!');
-        // Refresh tab content if in tab section
-        if (step3Section.style.display === 'flex') {
-          const activeTab = sessionStorage.getItem('activeTab') || 'overview';
-          showTab(activeTab);
+
+        const payload = { text, research_id: researchId };
+        console.log('Sending to /bookmark:', payload);
+
+        try {
+          const response = await fetch('/bookmark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || `Bookmark failed: ${response.status}`);
+          console.log('Bookmarked:', data);
+          showToast('Text bookmarked!');
+        } catch (err) {
+          console.error('Bookmark error:', err);
+          showError(`Failed to bookmark text: ${err.message}`);
+        } finally {
+          bookmarkBtn.remove();
         }
-      } catch (err) {
-        console.error('Error loading project:', err);
-        showError('Failed to load project.');
+      };
+      document.body.appendChild(bookmarkBtn);
+    });
+
+    // Prevent default context menu only when text is selected
+    document.addEventListener('contextmenu', (e) => {
+      const selection = window.getSelection();
+      const target = e.target.closest('#tabContent, #chatBox');
+      if (selection.toString().trim() && target) {
+        e.preventDefault(); // Suppress browser context menu only for valid selections
       }
     });
+
+    // Remove bookmark button on click elsewhere
+    document.addEventListener('click', (e) => {
+      const bookmarkBtn = document.querySelector('.bookmark-btn');
+      if (bookmarkBtn && !bookmarkBtn.contains(e.target)) {
+        bookmarkBtn.remove();
+      }
+    });
+
+    // Save project handler
+    if (saveProjectButton) {
+      saveProjectButton.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/save_research', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.error(`Save failed: ${data.error}`);
+            showError(`Failed to save project: ${data.error}`);
+            return;
+          }
+          showToast('Project saved!');
+          window.location.reload();
+        } catch (err) {
+          console.error('Error saving project:', err);
+          showError('Failed to save project.');
+        }
+      });
+    }
+
+    // Load project handler
+    document.querySelectorAll('.project-load').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const projectId = btn.dataset.projectId;
+        try {
+          const res = await fetch(`/load_project/${projectId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (!res.ok) throw new Error(`Load project failed: ${res.status}`);
+          const data = await res.json();
+          console.log('Loaded project:', data);
+          chatBox.innerHTML = '';
+          data.chat_history.forEach(msg => {
+            const msgDiv = document.createElement('div');
+            if (msg.content.startsWith('Here are some subtopics:')) {
+              const subtopics = msg.content.replace('Here are some subtopics: ', '').split(', ');
+              msgDiv.className = 'bot-message';
+              msgDiv.innerHTML = `<strong>Here are some subtopics:</strong> ${subtopics.map((s, i) =>
+                `<a href="#" class="choose-subtopic" data-index="${i}">${s}</a>`).join(', ')}`;
+              chatBox.appendChild(msgDiv);
+              attachSubtopicListeners(msgDiv, subtopics);
+            } else {
+              msgDiv.innerHTML = msg.content.includes('View scraped data') ?
+                `${msg.content.split('View scraped data')[0]}<a href="#" class="view-scraped-data">View scraped data</a>` :
+                msg.content;
+              msgDiv.className = msg.role === 'user' ? 'user-message' : 'bot-message';
+              chatBox.appendChild(msgDiv);
+              if (msg.content.includes('View scraped data')) {
+                msgDiv.querySelector('.view-scraped-data').addEventListener('click', (ev) => {
+                  ev.preventDefault();
+                  switchToTabs();
+                  const activeTab = sessionStorage.getItem('activeTab') || 'overview';
+                  showTab(activeTab);
+                });
+              }
+            }
+          });
+          chatBox.scrollTop = chatBox.scrollHeight;
+          chosenTopic.textContent = data.topic || '';
+          chosenSubtopic.textContent = data.subtopic || '';
+          sessionStorage.setItem('scraper_results', JSON.stringify(data.scraper_results || {}));
+          sessionStorage.setItem('chosen_subtopic', JSON.stringify({
+            research_id: data.research_id,
+            subtopic: data.subtopic || ''
+          }));
+          chatSection.style.display = 'flex';
+          formSection.style.display = 'none';
+          const lastMsg = chatBox.lastChild;
+          if (data.scraper_results && (!lastMsg || !lastMsg.innerHTML.includes('view-scraped-data'))) {
+            addViewLink(data.subtopic);
+          }
+          showToast('Project loaded!');
+          // Refresh tab content if in tab section
+          if (step3Section.style.display === 'flex') {
+            const activeTab = sessionStorage.getItem('activeTab') || 'overview';
+            showTab(activeTab);
+          }
+        } catch (err) {
+          console.error('Error loading project:', err);
+          showError('Failed to load project.');
+        }
+      });
+    });
   });
-});
   </script>
 </body>
 </html>

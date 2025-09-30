@@ -11,6 +11,8 @@ class User(UserMixin, db.Model):
     trial_start = db.Column(db.DateTime, default=datetime.utcnow)
     trial_end = db.Column(db.DateTime, default=lambda: datetime.utcnow() + timedelta(days=14))
     tier = db.Column(db.String(10), default='free') 
+    scraper_contraints = db.Column(db.Integer, default='10')
+    bookmark_contraints = db.Column(db.Integer, default='40')
     projects = db.relationship('Project', backref='user', lazy=True)
 
     def get_id(self):
@@ -61,3 +63,15 @@ class Blog(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     title = db.Column(db.Text, nullable=False)
     content = db.Column(db.Text)
+
+class Settings(db.Model):
+    __tablename__ = 'settings'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, unique=True)
+    theme_color = db.Column(db.String(20), default='light')
+    notifications = db.Column(db.Boolean, default=False)
+    default_view = db.Column(db.String(20), default='chat')
+    user = db.relationship('User', backref='settings', uselist=False)
+    __table_args__ = (
+        db.Index('idx_settings_user_id', 'user_id'),
+    )

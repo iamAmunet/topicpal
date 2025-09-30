@@ -149,7 +149,7 @@
                     btn.addEventListener('click', async () => {
                         const contentId = btn.dataset.contentId;
                         try {
-                            const res = await fetch(`/load_content/${contentId}`, {
+                            const res = await fetch(`/load_contents/${contentId}`, {
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' }
                             });
@@ -171,4 +171,3 @@
         </script>
     </body>
 </html>
-```

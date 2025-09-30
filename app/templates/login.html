@@ -2,6 +2,10 @@
 <html>
     <head>
         <title>Login page</title>
+        <!-- Google Sign-In script -->
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+        <!-- Optional: jwt-decode for frontend token parsing -->
+        <script src="https://unpkg.com/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
         <style>
             *{
                 margin:0;
@@ -59,7 +63,10 @@
             .card a{
                 font-size: 12px;
                 text-decoration: none;
-                color: black; /* same as signup */
+                color: black;
+                display: block;
+                margin: 5px 0;
+                cursor: pointer;
             }
             .card p{
                 font-size: 12px;
@@ -70,16 +77,89 @@
     <body>
         <div class="container">
             <div class="card">
-                <form method="POST" action="{{url_for('main.login') }}">
-                    <label>Topicpal</label>
-                    <input type="email" name="email" placeholder="Enter your email or username" required>
-                    <input type="password" name="password" placeholder="Enter password">
-                    <a href="#">Forgot password?</a>
-                    <p>or</p>
-                    <a href="#">Login with Google</a>
-                    <button type="submit">Login</button>
-                </form>
+                <!-- Login Form -->
+                <div id="login-form">
+                    <form method="POST" action="{{url_for('main.login') }}">
+                        <label>Topicpal</label>
+                        <input type="email" name="email" placeholder="Enter your email or username" required>
+                        <input type="password" name="password" placeholder="Enter password" required>
+                        <a id="forgot-toggle">Forgot password?</a>
+                        <p>or</p>
+                        <!-- Google Sign-In Button -->
+                        <div id="g_id_onload"
+                             data-client_id="238751018517-0b4hj9qn3j5k9q74180f7siq8b295ing.apps.googleusercontent.com"
+                             data-callback="handleCredentialResponse"
+                             data-auto_prompt="false">
+                        </div>
+                        <div class="g_id_signin"
+                             data-type="standard"
+                             data-size="large"
+                             data-theme="outline"
+                             data-text="sign_in_with"
+                             data-shape="rectangular"
+                             data-logo_alignment="center">
+                        </div>
+                        <button type="submit">Login</button>
+                    </form>
+                </div>
+                <!-- Forgot Password Form -->
+                <div id="forgot-form" style="display: none;">
+                    <form method="POST" action="{{url_for('main.forgot_password') }}">
+                        <label>Reset Password</label>
+                        <input type="email" name="email" placeholder="Enter your email" required>
+                        <button type="submit">Send Reset Link</button>
+                        <a id="back-to-login">Back to Login</a>
+                    </form>
+                </div>
             </div>
         </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const loginForm = document.getElementById('login-form');
+                const forgotForm = document.getElementById('forgot-form');
+                const forgotToggle = document.getElementById('forgot-toggle');
+                const backToLogin = document.getElementById('back-to-login');
+
+                // Toggle to forgot password form
+                forgotToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    loginForm.style.display = 'none';
+                    forgotForm.style.display = 'block';
+                });
+
+                // Toggle back to login form
+                backToLogin.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    forgotForm.style.display = 'none';
+                    loginForm.style.display = 'block';
+                });
+            });
+
+            // Handle Google Sign-In
+            function handleCredentialResponse(response) {
+                // Decode token (optional, for frontend demo)
+                const decoded = jwt_decode(response.credential);
+                console.log('User:', decoded.name, decoded.email);
+
+                // Send token to backend for verification
+                fetch('{{url_for("main.google_login") }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: response.credential })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/dashboard'; // Adjust redirect as needed
+                    } else {
+                        alert('Google login failed');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    alert('An error occurred');
+                });
+            }
+        </script>
     </body>
 </html>
