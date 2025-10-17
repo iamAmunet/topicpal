@@ -18,11 +18,12 @@ def create_app():
     # Use cockroachdb:// dialect
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'cockroachdb://anthony:up5VK3wUEz4fiA2O_mIcUA@aware-owl-16338.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    cert_path = os.getenv('SSL_ROOT_CERT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'certs', 'root.crt'))
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'connect_args': {
             'application_name': 'topicpal',
             'sslmode': 'verify-full',
-            'sslrootcert': os.path.join(os.path.dirname(__file__), 'certs', 'root.crt')
+            'sslrootcert': cert_path
         }
     }
 
@@ -56,3 +57,4 @@ def create_app():
 
 
     return app
+
