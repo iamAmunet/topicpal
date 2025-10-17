@@ -22,7 +22,7 @@ def create_app():
         'connect_args': {
             'application_name': 'topicpal',
             'sslmode': 'verify-full',
-            'sslrootcert': r'C:\Users\musonda sichilongo\AppData\Roaming\postgresql\root.crt'
+            'sslrootcert': os.path.join(os.path.dirname(__file__), 'certs', 'root.crt')
         }
     }
 
@@ -53,5 +53,6 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+
 
     return app
